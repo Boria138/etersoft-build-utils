@@ -47,7 +47,7 @@ while getopts :hf opt; do
     ?)  echog "$name: $OPTARG: bad option.  Use -h for help." 1>&2 ; exit 2;;
     esac
 done
- 
+
 # remove args that were options
 [ "$OPTIND" -gt 0 ] && shift $(($OPTIND - 1))
 
@@ -192,7 +192,7 @@ function source_ext()
 		#rhas "$GETSOURCEEXT" "%" && fatal "some macro unexpanded in URL. Check $TMPSPEC"
 		rm -f "$TMPSPEC"
 	fi
-	
+
 	echo "$GETSOURCEEXT"
 	test -n "$GETSOURCEEXT"
 }
@@ -557,11 +557,17 @@ update_predownloaded()
 
 
 	#### cargo only part
-	if [ -s "./Cargo.lock" ] && [ ! -d "./vendor" ] ; then
+	if [ ! -d "./vendor" ] ; then
 		local COMMITMSG=''
 		local PRODUCTION=''
 
 		#[ "$MODE" = "production" ] && PRODUCTION='--no-dev'
+
+		# Ensure Cargo.lock exists
+		if [ ! -s "./Cargo.lock" ]; then
+			info "Cargo.lock not found, generating it..."
+			docmd cargo generate-lockfile || fatal
+		fi
 
 		info "Detected 'Cargo.lock' install hook ..."
 		docmd cargo vendor --verbose $PRODUCTION || fatal
