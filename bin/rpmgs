@@ -811,7 +811,7 @@ fi
 		if [ "$CURVER" != "$GSSETVERSION" ] ; then
 
 			CURRAWVER=$(get_raw_version $spec)
-			if echo "$CURRAWVER" | grep -q "%" && echo "$CURRAWVER" | grep -v -E "^(%ver_major|%major)$" ; then
+			if echo "$CURRAWVER" | grep -q "%" && echo "$CURRAWVER" | grep -v -E -q "^(%ver_major|%major)" ; then
 				fatal "Can't override macros in Version field, check it manually. Only %ver_major and %major is supported"
 			fi
 
