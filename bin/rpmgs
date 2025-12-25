@@ -947,7 +947,7 @@ fi
 		CURVER=$(get_version $spec)
 		CURREL=$(get_release $spec)
 		EGEARME=""
-		is_gear && EGEARME=" with rpmgs script"
+		[ -n "$ETERBUILD_SIGN_CHANGELOG" ] && is_gear && EGEARME=" (with rpmgs script)"
 		if grep -q "^- new version $CURVER$" $spec ; then
 			subst "s|- new version $CURVER$|- new version ($CURVER)$EGEARME via gear-uupdate|" $spec && git commit --amend $spec
 		else
