@@ -386,16 +386,28 @@ echog "Will try to sign follow packages with GPG: \$LISTBUILT"
 # 1. only rpm command has --addsign 2. do 3 retries
 RPMSIGNARGS=""
 if [ -n "$BATCHSIGN" ] ; then
+	# batch signing requires gpg2
+	if ! which gpg2 >/dev/null 2>&1 ; then
+		echog "Batch signing (-B) requires gpg2, but it is not installed."
+		exit 1
+	fi
+	# use gpg2 for git tag signing
+	export GIT_CONFIG_COUNT=1
+	export GIT_CONFIG_KEY_0=gpg.program
+	export GIT_CONFIG_VALUE_0=gpg2
 	# check if gpg-agent is unlocked
-	if ! echo test | gpg --batch --pinentry-mode loopback -s > /dev/null 2>&1 ; then
+	if ! echo test | a= gpg2 --batch --pinentry-mode loopback -s > /dev/null 2>&1 ; then
 		echo
 		echog "GPG agent is not ready for batch signing."
 		echog "Please unlock it first in a terminal with tty:"
-		echog "  $ echo test | gpg --clearsign > /dev/null"
-		echog "Or use gpg-preset-passphrase to cache the passphrase."
+		echog "  $ echo test | gpg2 --clearsign > /dev/null"
+		echo
+		echog "Diagnostic:"
+		showcmd "echo test | gpg2 --batch --pinentry-mode loopback -s"
+		echo test | a= gpg2 --batch --pinentry-mode loopback -s
 		exit 1
 	fi
-	RPMSIGNARGS='--define=__gpg_sign_cmd %{__gpg} gpg --batch --pinentry-mode loopback --no-armor -u "%{_gpg_name}" -sbo %{__signature_filename} %{__plaintext_filename}'
+	RPMSIGNARGS='--define=__gpg_sign_cmd %{__gpg} gpg2 --batch --pinentry-mode loopback --no-armor -u "%{_gpg_name}" -sbo %{__signature_filename} %{__plaintext_filename}'
 fi
 docmd rpm $RPMSIGNARGS --addsign $LISTBUILT || docmd rpm $RPMSIGNARGS --addsign $LISTBUILT || docmd rpm $RPMSIGNARGS --addsign $LISTBUILT
 RET=$?
