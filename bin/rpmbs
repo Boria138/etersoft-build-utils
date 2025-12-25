@@ -35,6 +35,7 @@ DELETENOW=
 POCKET=
 PREPARETASK=
 TASKNUMBER=
+BATCHSIGN=
 
 #############################
 Usage="Usage: $name [GIRAR] [-b REPONAME] [-p POCKET] [-s|-t|-u|-a|-A|-c] [-o -z -n -p --nodeps] [-k [TARGETDIR]] [spec or src.rpm]..."
@@ -65,6 +66,7 @@ phelp()
 	echog "   -f           force operation (overwrite tag)"
 	echog "   -F           force operation (overwrite tag) and run task after add"
 	echog "   -s           sign package(s) (and move it to dir ETERDESTSRPM if defined)"
+	echog "   -B           batch sign mode (for scripts without tty)"
 	echog "   -t           set tag with sign"
 	echog "   -T           set tag"
 	echog "   -n           do not check with sisyphus_check before upload"
@@ -74,10 +76,11 @@ phelp()
 #	echog " -d - remove package(s) from SRPMS and Incoming"
 }
 
-while getopts :hfFstTcudenop:a:Ab:wz opt; do
+while getopts :hfFstTcudenop:a:Ab:wzB opt; do
     case $opt in
     h) phelp; exit 0;;
     s) SIGN=1 ;;
+    B) BATCHSIGN=1 ;;
     t) SIGNTAG=1 ;;
     T) SETTAG=1 ;;
     f) FORCE="-f" ;;
@@ -381,7 +384,20 @@ fi
 
 echog "Will try to sign follow packages with GPG: \$LISTBUILT"
 # 1. only rpm command has --addsign 2. do 3 retries
-docmd rpm --addsign $LISTBUILT || docmd rpm --addsign $LISTBUILT || docmd rpm --addsign $LISTBUILT
+RPMSIGNARGS=""
+if [ -n "$BATCHSIGN" ] ; then
+	# check if gpg-agent is unlocked
+	if ! echo test | gpg --batch --pinentry-mode loopback -s > /dev/null 2>&1 ; then
+		echo
+		echog "GPG agent is not ready for batch signing."
+		echog "Please unlock it first in a terminal with tty:"
+		echog "  $ echo test | gpg --clearsign > /dev/null"
+		echog "Or use gpg-preset-passphrase to cache the passphrase."
+		exit 1
+	fi
+	RPMSIGNARGS='--define=__gpg_sign_cmd %{__gpg} gpg --batch --pinentry-mode loopback --no-armor -u "%{_gpg_name}" -sbo %{__signature_filename} %{__plaintext_filename}'
+fi
+docmd rpm $RPMSIGNARGS --addsign $LISTBUILT || docmd rpm $RPMSIGNARGS --addsign $LISTBUILT || docmd rpm $RPMSIGNARGS --addsign $LISTBUILT
 RET=$?
 if [ ! "$RET" = "0" ] ; then
 	echog "Impossible to sign package. Check your password and try again."

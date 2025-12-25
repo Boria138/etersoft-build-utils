@@ -19,11 +19,12 @@ test -f ~/.config/korinf  && . ~/.config/korinf
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	echog "rpmpub - Etersoft specific script for publish gear repo to target ftp dir as src.rpm"
-	echog "Usage: rpmpub [-f] [-r PROJECTVERSION ] [SPEC] [TARGETDIR]"
+	echog "Usage: rpmpub [-f] [-B] [-r PROJECTVERSION ] [SPEC] [TARGETDIR]"
 	echo
 	echog "Options:"
 	echog "   -f                 force set tag"
 	echog "   -s                 skip set tag"
+	echog "   -B                 batch sign mode (for scripts without tty)"
 	echog "   -r PROJECTVERSION  set other project version (PROJECTVERSION/sources)"
 	echog "   TARGETDIR          copy signed src.rpm package to TARGETDIR (f.i., /tmp/some_version/sources)"
 	echog "                      By default used path from Source: spec field. "
@@ -34,6 +35,12 @@ fi
 FORCE=
 if [ "$1" = "-f" ] ; then
 	FORCE=$1
+	shift
+fi
+
+BATCHSIGN=
+if [ "$1" = "-B" ] ; then
+	BATCHSIGN=$1
 	shift
 fi
 
@@ -100,7 +107,7 @@ else
 fi
 
 # just for your information: rpmbs supports ssh-like target
-docmd $ETERBUILDBIN/rpmbs $FORCE $SETTAG $SPECNAME || fatal "Can't build SRPMS"
+docmd $ETERBUILDBIN/rpmbs $FORCE $BATCHSIGN $SETTAG $SPECNAME || fatal "Can't build SRPMS"
 
 # if known target and last link already exists
 if [ -n "$ALPHA" ] && [ -L "$ETERDESTSRPM/../../last" ] ; then
