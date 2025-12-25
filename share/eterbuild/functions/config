@@ -76,6 +76,9 @@ BUILDSERVER=
 # enable ccache using
 # CCACHE_ENABLE=yes
 
+# add tool name to changelog (rpmgs, rpmrb)
+# ETERBUILD_SIGN_CHANGELOG=1
+
 # load system wide config
 [ -f /etc/eterbuild/config ] && . /etc/eterbuild/config
 

@@ -74,7 +74,9 @@ for SPEC in $LISTNAMES ; do
 	export GSSETRELEASE
 
 	docmd $ETERBUILDBIN/rpmgs $SPEC $VER || fatal "Error within rpmgs"
-	add_changelog_helper "- new version $(get_version $SPEC) (with rpmrb script)" $SPEC || echog "Changelog entry already exists"
+	SIGNME=""
+	[ -n "$ETERBUILD_SIGN_CHANGELOG" ] && SIGNME=" (with rpmrb script)"
+	add_changelog_helper "- new version $(get_version $SPEC)$SIGNME" $SPEC || echog "Changelog entry already exists"
 
 	if is_gear ; then
 		#git diff $SPEC
