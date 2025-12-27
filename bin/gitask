@@ -139,9 +139,9 @@ if [ "$1" = "acl" ] ; then
 	fi
 	shift
 	BINARYREPO=$(set_if_matched $1 "Sisyphus [ptc][6-9] [ptc][6-9]\.[0-9]") && shift
-	COMMAND="$1"
-	PROJECTNAME="$2"
-	[ -z "$PROJECTNAME" ] && PROJECTNAME="$COMMAND" && COMMAND="show"
+	PROJECTNAME="$1"
+	COMMAND="$2"
+	[ -z "$COMMAND" ] && COMMAND="show"
 	OPERAND="$3"
 	showcmd ssh $GEARHOST acl $BINARYREPO $PROJECTNAME $COMMAND $OPERAND
 	echo "$GEARHOST:$BINARYREPO ACL for $PROJECTNAME:"
