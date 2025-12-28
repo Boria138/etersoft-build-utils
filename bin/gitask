@@ -39,8 +39,9 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	echo "     quota                       - show quota on the remote servers"
 	echo "     cancel NNNN                 - cancel task NNNN"
 	echo "     approve NNNN SUBTASK [-m <message>] - approve subtask"
-	echo "     acl [branch] show package   - show acl for the package"
-	echo "     acl [branch] package add|del <maintainer> - add/del acl for the package"
+	echo "     acl [branch] package        - show acl for the package"
+	echo "     acl [branch] package add|del <user> - add/del acl for the package"
+	echo "     wait   [NNNN] [-q|--quiet]  - wait for task build to complete"
 	echo "     rebuild --help              - rebuild package"
 	exit 0
 fi
@@ -65,6 +66,12 @@ get_last()
 get_test_status()
 {
 	ssh $GEARHOST task ls | grep "^#$1 " | grep "\[test-only\]"
+}
+
+# get task status (TESTED, FAILED, EPERM, NEW, AWAITING, BUILDING, PENDING, DONE)
+get_task_status()
+{
+	ssh $GEARHOST task ls | grep "^#$1 " | sed -e "s|^#[0-9]* \([A-Z]*\) .*|\1|"
 }
 
 # get subtask number from TASKNUMBER for PROJECTNAME
@@ -131,7 +138,9 @@ set_if_matched()
     return 1
 }
 
-# acl [p9] show mc | add mc lav
+# acl [p9] package [add|del user]
+# CLI: package first, then command
+# API: acl BRANCH COMMAND PACKAGE [USER]
 if [ "$1" = "acl" ] ; then
 	if [ "$lastarg" = "--help" ] ; then
 		docmd ssh $GEARHOST "$@"
@@ -143,11 +152,13 @@ if [ "$1" = "acl" ] ; then
 	COMMAND="$2"
 	[ -z "$COMMAND" ] && COMMAND="show"
 	OPERAND="$3"
-	showcmd ssh $GEARHOST acl $BINARYREPO $PROJECTNAME $COMMAND $OPERAND
+	# API: acl REPOSITORY PACKAGE COMMAND [USER]
 	echo "$GEARHOST:$BINARYREPO ACL for $PROJECTNAME:"
 	if [ "$COMMAND" = "show" ] ; then
-		ssh $GEARHOST acl $BINARYREPO $PROJECTNAME $COMMAND | sed -e "s|^$PROJECTNAME||"
+		showcmd ssh $GEARHOST acl $BINARYREPO $PROJECTNAME show
+		ssh $GEARHOST acl $BINARYREPO $PROJECTNAME show | sed -e "s|^$PROJECTNAME||"
 	else
+		showcmd ssh $GEARHOST acl $BINARYREPO $PROJECTNAME $COMMAND $OPERAND
 		ssh $GEARHOST acl $BINARYREPO $PROJECTNAME $COMMAND $OPERAND
 	fi
 	exit
@@ -180,6 +191,14 @@ if [ "$1 $2" = "cancel --help" ] ; then
 	echo "cancel a task"
 	echo "Usage: $ gita cancel <task id>"
 	exit
+fi
+
+if [ "$1 $2" = "wait --help" ] || [ "$1 $2" = "wait -h" ] ; then
+	echo "wait - wait for task build to complete"
+	echo "Usage: gita wait [NNNN] [-q|--quiet]"
+	echo "  NNNN     - task number (default: last task)"
+	echo "  -q       - quiet mode, no spinner"
+	exit 0
 fi
 
 if [ "$lastarg" = "--help" ] ; then
@@ -375,6 +394,47 @@ if [ "$1" = "run" ] || [ "$1" = "commit" ] || [ "$1" = "test" ] ; then
 
 	for TASK in $TASKLIST ; do
 		echo "$MESSAGETEXT" | docmd ssh $GEARHOST task run $COMMAND $MESSAGE "$TASK"
+	done
+	exit
+fi
+
+if [ "$1" = "wait" ] ; then
+	shift
+	QUIET=''
+	TASK=''
+	while [ -n "$1" ] ; do
+		if [ "$1" = "-q" ] || [ "$1" = "--quiet" ] ; then
+			QUIET=1
+		elif is_task_number "$1" ; then
+			TASK="$(get_task_number $1)"
+		else
+			fatal "Unknown param $1"
+		fi
+		shift
+	done
+	[ -n "$TASK" ] || TASK="$(get_last)" || fatal "Can't get last task"
+	SPINNER='|/-\'
+	SPINPOS=0
+	INTERVAL=10
+	info "Waiting for task #$TASK to complete..."
+	while true ; do
+		STATUS="$(get_task_status $TASK)"
+		[ -z "$STATUS" ] && info "Task #$TASK not found or already done" && exit 0
+		case "$STATUS" in
+			TESTED|FAILED|EPERM|DONE)
+				# clear spinner
+				[ -z "$QUIET" ] && isatty && printf "\r\033[K"
+				info "Task #$TASK: $STATUS"
+				[ "$STATUS" = "TESTED" ] || [ "$STATUS" = "DONE" ]
+				exit $?
+				;;
+		esac
+		if [ -z "$QUIET" ] && isatty ; then
+			SPINCHAR="${SPINNER:$SPINPOS:1}"
+			printf "\r[%s] #%s %s " "$SPINCHAR" "$TASK" "$STATUS"
+			SPINPOS=$(( (SPINPOS + 1) % 4 ))
+		fi
+		sleep $INTERVAL
 	done
 	exit
 fi

@@ -49,6 +49,8 @@ MENV=SS      # for Sisyphus
 | `gita add <cmd> <pkg>` | Add subtask |
 | `gita run [task]` | Run task |
 | `gita log [task]` | Show build log |
+| `gita wait [task]` | Wait for task to complete |
+| `gita acl <pkg> [add\|del <user>]` | Show/modify package ACL |
 
 ### Spec file utilities
 
