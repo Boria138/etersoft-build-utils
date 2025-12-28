@@ -36,6 +36,7 @@ POCKET=
 PREPARETASK=
 TASKNUMBER=
 BATCHSIGN=
+CACHEGPGKEY=
 
 #############################
 Usage="Usage: $name [GIRAR] [-b REPONAME] [-p POCKET] [-s|-t|-u|-a|-A|-c] [-o -z -n -p --nodeps] [-k [TARGETDIR]] [spec or src.rpm]..."
@@ -67,6 +68,7 @@ phelp()
 	echog "   -F           force operation (overwrite tag) and run task after add"
 	echog "   -s           sign package(s) (and move it to dir ETERDESTSRPM if defined)"
 	echog "   -B           batch sign mode (for scripts without tty)"
+	echog "   -G           cache GPG key passphrase in agent (run before -B)"
 	echog "   -t           set tag with sign"
 	echog "   -T           set tag"
 	echog "   -n           do not check with sisyphus_check before upload"
@@ -76,11 +78,12 @@ phelp()
 #	echog " -d - remove package(s) from SRPMS and Incoming"
 }
 
-while getopts :hfFstTcudenop:a:Ab:wzB opt; do
+while getopts :hfFstTcudenop:a:Ab:wzBG opt; do
     case $opt in
     h) phelp; exit 0;;
     s) SIGN=1 ;;
     B) BATCHSIGN=1 ;;
+    G) CACHEGPGKEY=1 ;;
     t) SIGNTAG=1 ;;
     T) SETTAG=1 ;;
     f) FORCE="-f" ;;
@@ -249,6 +252,47 @@ CURDIR=`pwd`
 # see functions/alt:set_binaryrepo() for BINARYREPONAME
 set_binaryrepo $MENV
 
+# Cache GPG key passphrase in agent
+if [ -n "$CACHEGPGKEY" ] ; then
+	if ! which gpg2 >/dev/null 2>&1 ; then
+		fatal "GPG key caching requires gpg2, but it is not installed."
+	fi
+	GPG_NAME=$(rpm --eval '%{_gpg_name}')
+	echog "Caching GPG key '$GPG_NAME' in agent (enter passphrase when prompted)..."
+	echo "test" | gpg2 -u "$GPG_NAME" --clearsign > /dev/null || fatal "Failed to cache GPG key"
+	echog "GPG key cached successfully."
+	# If only -G was specified (no sign/build operations), exit
+	[ -z "$SIGN$SIGNTAG$SETTAG$UPLOADNOW$BATCHSIGN" ] && exit 0
+fi
+
+# Setup batch signing mode (gpg2 wrapper with --batch --pinentry-mode loopback)
+if [ -n "$BATCHSIGN" ] ; then
+	if ! which gpg2 >/dev/null 2>&1 ; then
+		fatal "Batch signing (-B) requires gpg2, but it is not installed."
+	fi
+	# create gpg2 wrapper with batch options for git tag signing
+	GPG2_WRAPPER=$(mktemp)
+	cat > "$GPG2_WRAPPER" <<'EOFWRAPPER'
+#!/bin/sh
+exec gpg2 --batch --pinentry-mode loopback "$@"
+EOFWRAPPER
+	chmod +x "$GPG2_WRAPPER"
+	trap "rm -f '$GPG2_WRAPPER'" EXIT
+	# check if gpg-agent is unlocked for the signing key
+	GPG_NAME=$(rpm --eval '%{_gpg_name}')
+	if ! echo test | "$GPG2_WRAPPER" -u "$GPG_NAME" -s > /dev/null 2>&1 ; then
+		echo
+		echog "GPG agent is not ready for batch signing (key: $GPG_NAME)."
+		echog "Please run 'rpmbs -G' first to cache the passphrase."
+		echo
+		exit 1
+	fi
+	# set gpg.program globally for this session (GIT_CONFIG_* may not work with gear-create-tag)
+	git config --global gpg.program "$GPG2_WRAPPER"
+	RESTORE_GPG_PROGRAM=1
+	trap "rm -f '$GPG2_WRAPPER'; [ -n \"\$RESTORE_GPG_PROGRAM\" ] && git config --global --unset gpg.program" EXIT
+fi
+
 if [ -n "$SIGNTAG$SETTAG" ] ; then
 	for ln in $LISTNAMES ; do
 		if set_usebranch ; then
@@ -384,32 +428,14 @@ fi
 
 echog "Will try to sign follow packages with GPG: \$LISTBUILT"
 # 1. only rpm command has --addsign 2. do 3 retries
-RPMSIGNARGS=""
 if [ -n "$BATCHSIGN" ] ; then
-	# batch signing requires gpg2
-	if ! which gpg2 >/dev/null 2>&1 ; then
-		echog "Batch signing (-B) requires gpg2, but it is not installed."
-		exit 1
-	fi
-	# use gpg2 for git tag signing
-	export GIT_CONFIG_COUNT=1
-	export GIT_CONFIG_KEY_0=gpg.program
-	export GIT_CONFIG_VALUE_0=gpg2
-	# check if gpg-agent is unlocked
-	if ! echo test | a= gpg2 --batch --pinentry-mode loopback -s > /dev/null 2>&1 ; then
-		echo
-		echog "GPG agent is not ready for batch signing."
-		echog "Please unlock it first in a terminal with tty:"
-		echog "  $ echo test | gpg2 --clearsign > /dev/null"
-		echo
-		echog "Diagnostic:"
-		showcmd "echo test | gpg2 --batch --pinentry-mode loopback -s"
-		echo test | a= gpg2 --batch --pinentry-mode loopback -s
-		exit 1
-	fi
-	RPMSIGNARGS='--define=__gpg_sign_cmd %{__gpg} gpg2 --batch --pinentry-mode loopback --no-armor -u "%{_gpg_name}" -sbo %{__signature_filename} %{__plaintext_filename}'
+	showcmd rpm --define "\"__gpg $GPG2_WRAPPER\"" --addsign $LISTBUILT
+	rpm --define "__gpg $GPG2_WRAPPER" --addsign $LISTBUILT || \
+	rpm --define "__gpg $GPG2_WRAPPER" --addsign $LISTBUILT || \
+	rpm --define "__gpg $GPG2_WRAPPER" --addsign $LISTBUILT
+else
+	docmd rpm --addsign $LISTBUILT || docmd rpm --addsign $LISTBUILT || docmd rpm --addsign $LISTBUILT
 fi
-docmd rpm $RPMSIGNARGS --addsign $LISTBUILT || docmd rpm $RPMSIGNARGS --addsign $LISTBUILT || docmd rpm $RPMSIGNARGS --addsign $LISTBUILT
 RET=$?
 if [ ! "$RET" = "0" ] ; then
 	echog "Impossible to sign package. Check your password and try again."
