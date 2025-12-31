@@ -127,6 +127,33 @@ if [ "$PKGVENDOR" = "alt" ] ; then
 		docmd set_release $SPECNAME $TXTRELEASE$(decrement_release $BASERELEASE).$MDISTR.$BASERELEASE
 	fi
 
+	# HACK
+	if [ $DISTRVERSION = "p8" ] ; then
+		docmd subst "s|def_without mingw|def_with mingw|" $SPECNAME
+		docmd subst "s|def_with opencl|def_without opencl|" $SPECNAME
+		#docmd subst "s|def_with sdl|def_without sdl|" $SPECNAME
+		docmd subst "s|def_with vulkan|def_without vulkan|" $SPECNAME
+		docmd subst "s|def_with ffmpeg|def_without ffmpeg|" $SPECNAME
+		docmd subst "s|def_with wayland|def_without wayland|" $SPECNAME
+	fi
+
+	# HACK: can't fix it with rpm-macros-features :(
+	# FIXME: for c9f2
+	if ! version_more_version $DISTRVERSION c9 ; then
+		docmd subst "s|def_with opencl|def_without opencl|" $SPECNAME
+		docmd subst "s|def_with sdl|def_without sdl|" $SPECNAME
+	fi
+
+	if ! version_more_version $DISTRVERSION c9f2 ; then
+		docmd subst "s|def_with vulkan|def_without vulkan|" $SPECNAME
+		docmd subst "s|def_with ffmpeg|def_without ffmpeg|" $SPECNAME
+	fi
+
+	if ! version_more_version $DISTRVERSION c10 ; then
+		# libxkbcommon-devel have to provides pkgconfig(xkbregistry) for build with wayland
+		docmd subst "s|def_with wayland|def_without wayland|" $SPECNAME
+	fi
+
 	ADDDEF=""
 	CLEANTEXT=""
 	# HACK: remove after eepm update
@@ -148,11 +175,18 @@ else
 		fi
 	fi
 
+	# HACK:
+	[ "$DISTRNAME" = "AlterOS" ] && subst "s|def_with sdl|def_without sdl|" $SPECNAME
+
 	# TODO: add support for external hooks (from config dir)
 
 	if build32on64 ; then
+		if [ "$DISTRNAME/$DISTRVERSION" = "AstraLinuxSE/1.7" ] ; then
+			docmd subst "s|def_with opencl|def_without opencl|" $SPECNAME
+			#docmd subst "s|--with-pulse||" $SPECNAME
+		fi
 		[ "$DISTRNAME" = "Debian" ] && ! version_more_version $DISTRVERSION 8 && BUILDREQ="$BUILDREQ ia32-libs-dev"
-		[ "$DISTRNAME" = "AstraLinux" ] && BUILDREQ="$BUILDREQ ia32-libs-dev gcc-multilib"
+		[ "$DISTRNAME" = "AstraLinuxSE" ] && BUILDREQ="$BUILDREQ ia32-libs-dev gcc-multilib" && subst "s|def_with sdl|def_without sdl|" $SPECNAME
 		[ "$DISTRNAME" = "Ubuntu" ] && ! version_more_version $DISTRVERSION 12.04 && BUILDREQ="$BUILDREQ ia32-libs-dev"
 		[ "$DISTRNAME" = "CentOS" ] && version_more_version $DISTRVERSION 6 && BUILDREQ="$BUILDREQ glibc-devel(x86-32)"
 		[ "$DISTRNAME" = "Scientific" ] && version_more_version $DISTRVERSION 6 && BUILDREQ="$BUILDREQ glibc-devel(x86-32)"
@@ -211,6 +245,22 @@ if [ "$DISTRNAME/$DISTRVERSION" = "ASPLinux/11.2" ] ; then
 	test -z "$VERBOSE" || echo "Add subst readlink -m"
 	ADDFIXCOMMAND="$ADDFIXCOMMAND
 %__subst 's|readlink -m|readlink -f|g' libtool ltmain.sh"
+fi
+
+# TODO: тогда ломается упаковка на нашей стороне
+# error: %patchN is obsolete, use %patch N (or %patch -P N)
+if [ "$DISTRNAME/$DISTRVERSION" = "Fedora/41" ] || \
+   [ "$DISTRNAME/$DISTRVERSION" = "Fedora/42" ] || \
+   [ "$DISTRNAME/$DISTRVERSION" = "Fedora/43" ] || \
+   [ "$DISTRNAME/$DISTRVERSION" = "Ubuntu/25.04" ] || \
+   [ "$DISTRNAME/$DISTRVERSION" = "Ubuntu/25.10" ]  || \
+   [ "$DISTRNAME/$DISTRVERSION" = "Ubuntu/26.04" ]  || \
+   [ "$DISTRNAME/$DISTRVERSION" = "Debian/13" ] || \
+   [ "$DISTRNAME/$DISTRVERSION" = "Debian/14" ]
+   then
+	test -z "$VERBOSE" || echo "Replace %patchN with %patch N"
+	#subst 's|^%patch\([0-9][0-9]*\) |%patch \1 |g' $SPECNAME
+	subst 's|^%patch\([0-9][0-9]*\) |%patch -P \1 |g' $SPECNAME
 fi
 
 # fix readlink -mv, introduced by new libtool and missed in FreeBSD (replace with realpath)
@@ -368,8 +418,9 @@ if [ -n "$VERBOSE" ] ; then
 	echo
 	echo "cat $SPECNAME"
 	cat $SPECNAME
-	echo "--- eval spec -----------"
-	eval_spec $SPECNAME
+	# it is useless not in target system
+	#echo "--- eval spec -----------"
+	#eval_spec $SPECNAME
 fi
 
 
