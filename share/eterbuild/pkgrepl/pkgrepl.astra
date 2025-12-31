@@ -67,32 +67,66 @@ libwxGTK3.0|libwxgtk3.0-0v5
 libwxGTK3.0-devel|libwxgtk3.0-dev
 libwxGTK3.1|libwxgtk3.0-0v5
 libwxGTK3.1-devel|libwxgtk3.0-dev
+libwxGTK3.2|libwxgtk3.0-0v5
+libwxGTK3.2-devel|libwxgtk3.0-dev
 libwxGTK|libwxgtk3.0-0v5
 libwxGTK-devel|libwxgtk3.0-dev
 libwxBase3.0|libwxbase3.0-0v5
+libwxBase3.2|libwxbase3.0-0v5
 
 cifs-utils|cifs-utils
 libcrypto1.1|libssl1.1
 libcrypto3|libssl1.1
 
-# The following packages have unmet dependencies:
-# libsdl2-dev : Depends: libegl1-mesa-dev but it is not going to be installed
-#               Depends: libgl1-mesa-dev but it is not going to be installed
-#               Depends: libgles2-mesa-dev but it is not going to be installed
-#               Depends: libglu1-mesa-dev but it is not going to be installed
-libSDL2-devel|
-libSDL2|
+libSDL2-devel|libsdl2-dev
+libSDL2|libsdl2-2.0-0
 
 libGL|libgl1
-libGL-devel|libgl-dev
+libGL-devel|libgl-dev mesa-common-dev
 patchelf|
 
 # RX
 # looks like all debian based distros have iputils-* packeges
 #iputils|iputils-ping
+rpm-macros-systemd|
+libdrm-devel|libdrm-dev
 
 # gio + gvfs
 libgio|libglib2.0-bin
 fuse-gvfs|gvfs-fuse
 
 fonts-ttf-liberation|fonts-liberation
+
+# ИХ НЕТ в 1.7
+#libxkbcommon|libxkbcommon0 libxkbregistry0
+#libxkbcommon-devel|libxkbcommon-dev libxkbregistry-dev
+
+# rxkdriveclient
+qt5-base-devel|qt5-qmake-bin qttools5-dev-tools
+qt5-tools|qttools5-dev-tools
+qt5-svg-devel|libqt5svg5-dev
+libdqt5-core|
+libdqt5-gui|
+libdqt5-network|
+libdqt5-widgets|
+libdqt5-x11extras|
+libqt5-core|qt5-default
+libqt5-gui|qt5-default
+libqt5-network|qt5-default
+libqt5-widgets|qt5-default
+libqt5-x11extras|libqt5x11extras5
+libxcb-devel|libxcb-xfixes0-dev libxcb-randr0-dev libxcb-xkb-dev
+
+#rxkagent
+libdrm-devel|libdrm-dev
+xorg-xtrans-devel|xtrans-dev
+xorg-util-macros|xutils-dev
+xorg-server|xserver-xorg-core
+xorg-server-common|xserver-common
+libxcbutil-devel|libxcb-util-dev
+libxcb-render-util-devel||libxcb-render0-dev
+libxcbutil-image-devel|libxcb-image0-dev
+libxcbutil-keysyms-devel|libxcb-keysyms1-dev
+libxcb-render-util-devel|libxcb-render-util0-dev
+libxcbutil-icccm-devel|libxcb-icccm4-dev libxcb-ewmh-dev
+

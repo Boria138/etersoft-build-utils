@@ -1,4 +1,5 @@
 libcrypto1.1|libssl1.0.0
+libcrypto3|libssl1.0.0
 libjpeg-devel|libjpeg8-dev
 libjpeg|libjpeg8
 libicu56|libicu52

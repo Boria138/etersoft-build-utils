@@ -5,3 +5,5 @@ lld|lld:amd64
 llvm|llvm:amd64
 
 #perl-base|perl-base:amd64
+
+glibc-devel|gcc-multilib:amd64

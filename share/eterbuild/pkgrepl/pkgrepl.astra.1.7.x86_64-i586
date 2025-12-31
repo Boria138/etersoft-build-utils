@@ -38,3 +38,7 @@ libpcsclite|
 # нет в ia32-libs/ia32-libs-dev
 libXpresent|
 libXpresent-devel|
+
+# missed
+libSDL2-devel|
+libSDL2|

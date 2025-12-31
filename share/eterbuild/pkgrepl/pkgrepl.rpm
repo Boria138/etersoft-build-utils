@@ -351,3 +351,14 @@ libpcsclite-devel|pcsc-lite-devel pcsc-lite-libs
 pulseaudio-daemon|pulseaudio
 
 eepm-rpm-build|
+
+libavcodec61|
+libavformat61|
+libavutil59|
+
+libavcodec-devel|
+libavformat-devel|
+libavutil-devel|
+
+libwayland-client-devel|wayland-devel
+libwayland-egl-devel|wayland-devel

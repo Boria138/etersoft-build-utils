@@ -8,4 +8,4 @@ libwine-etersoft-devel|
 
 # missed internal deps, see https://bugs.etersoft.ru/show_bug.cgi?id=16241
 libgphoto2-devel|libgphoto2-devel libexif-devel
-libfreetype-devel|bzip2-devel libpng-devel brotli-devel
+libfreetype-devel|freetype-devel bzip2-devel libpng-devel brotli-devel

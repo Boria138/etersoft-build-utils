@@ -6,3 +6,9 @@ libpng16|libpng16
 
 libXpresent-devel|libXpresent-devel
 libXpresent|libXpresent
+
+#RX 
+## Use wxgtk3.0 Until support wxgtk3.2
+libwxGTK3.2|libwxGTK3.0
+libwxGTK3.2-devel|libwxGTK3.0-devel
+libwxBase3.2|libwxBase3.0

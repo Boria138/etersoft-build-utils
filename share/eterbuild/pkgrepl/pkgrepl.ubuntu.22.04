@@ -5,3 +5,6 @@ libcrypto1.1|libssl3
 libssl3|libssl3
 libcrypto3|libssl3
 libGL|libglx-mesa0
+
+libxkbcommon|libxkbcommon0 libxkbregistry0
+libxkbcommon-devel|libxkbcommon-dev libxkbregistry-dev

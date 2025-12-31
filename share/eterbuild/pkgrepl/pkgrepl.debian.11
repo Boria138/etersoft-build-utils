@@ -4,3 +4,6 @@ libwxGTK3.1|libwxgtk3.0-gtk3-0v5
 libwxGTK3.1-devel|libwxgtk3.0-gtk3-dev
 libwxGTK|libwxgtk3.0-gtk3-0v5
 libwxGTK-devel|libwxgtk3.0-gtk3-dev
+
+libxkbcommon|libxkbcommon0 libxkbregistry0
+libxkbcommon-devel|libxkbcommon-dev libxkbregistry-dev

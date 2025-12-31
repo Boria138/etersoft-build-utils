@@ -70,6 +70,7 @@ libGLU|libglu1
 
 libGL-devel|libGL-devel
 libGL|libGL1
+libEGL|libEGL1
 
 libSDL2|libSDL2_2.0_0
 libpcap0.8|libpcap1
@@ -93,3 +94,20 @@ libpcsclite|libpcsclite1
 libpcsclite-devel|libpcsclite-devel
 
 archivemount|
+
+libavcodec61|libavcodec58
+libavformat61|libavformat58
+libavutil59|libavutil56
+
+libavcodec-devel|libffmpeg-devel
+libavformat-devel|libffmpeg-devel
+libavutil-devel|libffmpeg-devel
+libwayland-client-devel|libwayland-devel
+libwayland-client|libwayland-client0
+libwayland-egl-devel|libwayland-devel
+libwayland-egl|libwayland-egl1
+
+libxkbcommon|libxkbcommon0 libxkbregistry0
+libxkbcommon-devel|libxkbregistry-devel libxkbcommon-devel
+
+ocl-icd|libopencl1

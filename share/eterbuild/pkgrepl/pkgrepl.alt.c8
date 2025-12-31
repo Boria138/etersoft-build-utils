@@ -31,9 +31,14 @@ patchelf|patchelf
 
 libOSMesa-devel|
 libOSMesa|
-# why is required if skipped??
-#libvulkan-devel|
-#libvulkan1|
+
+libvulkan-devel|
+libvulkan1|
 
 libXpresent-devel|
 libXpresent|
+
+ocl-icd-devel|
+ocl-icd|
+
+opencl-headers|

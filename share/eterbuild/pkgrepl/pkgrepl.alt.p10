@@ -4,3 +4,9 @@ lua-devel|liblua-devel
 libpng15|libpng16
 libpng16|libpng16
 libOSMesa-devel|libOSMesa-devel
+
+#RX 
+## Use wxgtk3.0 Until support wxgtk3.2
+#libwxGTK3.2|libwxGTK3.0
+#libwxGTK3.2-devel|libwxGTK3.0-devel
+#libwxBase3.2|libwxBase3.0

@@ -33,3 +33,5 @@ libXpresent|
 libXpresent-devel|
 archivemount|
 
+libxkbcommon|libxkbcommon0 libxkbregistry0
+libxkbcommon-devel|libxkbcommon-dev libxkbregistry-dev
