@@ -1,0 +1,46 @@
+
+# use headers from it (not provided by ia32-libs-dev)
+# need fix link
+libvulkan-devel|
+#libvulkan1|
+libXpm-devel|libxpm-dev
+
+# need fix link in /usr/lib32/i386-*
+## cat /usr/lib32/i386-linux-gnu/libusb-1.0.so 
+#GROUP ( /lib32/i386-linux-gnu/libusb-1.0.so.0.1.0 )
+libusb|
+libusb-devel|libusb-1.0-0-dev:amd64
+
+# no 32-bit dbus, drop devel due wrong detection (gcc -m32 -Xlinker --verbose | grep SEARCH)
+libdbus-devel|
+libdbus|
+
+# missed libv4l-0
+libv4l|
+# not for 32 bit
+samba-libs|
+
+# /usr/bin/ld: /usr/lib/x86_64-linux-gnu/libodbc.so: error adding symbols: file in wrong format
+libunixODBC-devel|
+libunixODBC2|
+unixODBC|
+
+# он в ia32-libs
+libpcsclite|
+
+# нет в ia32-libs/ia32-libs-dev
+libXpresent|
+libXpresent-devel|
+
+# missed
+libSDL2-devel|
+libSDL2|
+
+libX11-devel|ia32-libs-dev
+
+libavcodec61|
+libavformat61|
+libavutil59|
+
+libxkbcommon|
+libxkbcommon-devel|

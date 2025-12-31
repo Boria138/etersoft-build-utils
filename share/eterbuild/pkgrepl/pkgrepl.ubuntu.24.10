@@ -1,0 +1,7 @@
+libavcodec61|libavcodec61
+libavformat61|libavformat61
+libavutil59|libavutil59
+
+libcrypto1.1|libssl3
+libcrypto3|libssl3
+libssl1.1|libssl3
