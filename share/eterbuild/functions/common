@@ -614,7 +614,12 @@ usearg()
 # return 0 if arg1 >= arg2
 version_more_version()
 {
-	[ "$2" = "$(echo -e "$1\n$2" | sort -n | head -n1)" ]
+	if ! which rpmvercmp >/dev/null 2>/dev/null ; then
+		[ "$2" = "$(echo -e "$1\n$2" | sort -n | head -n1)" ]
+		return
+	fi
+	[ "$(rpmvercmp "$1" "$2")" = "-1" ] && return 1
+	return 0
 }
 
 HELP_GIRAR="   GIRAR - git.alt (ga, galt) or git.eter (ge, geter)"
