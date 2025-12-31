@@ -19,7 +19,7 @@ fi
 # moved from aptU
 get_rpm_package_requires()
 {
-	(rpmquery --requires "$@" || return ) | cut -f1 -d" " | sed -e "s|\(^lib.*\)(.*[0-9])|\1|g" | grep -v "^rpmlib" | sort -u
+	(rpmquery --requires "$@" || return ) | cut -f1 -d" " | sed -e 's|\(^lib.*\)(.*[0-9])|\1()|g' | grep -v "^rpmlib" | sort -u
 }
 
 filter_pkgname()
@@ -143,7 +143,7 @@ trans_rpmdeps_to_pkgname_lav()
 	# FIXME: strange regexp for drop libNAME.so.NUM and perl(Package) and /bin/sh
 	REALPKGNAMELIST=$(estrlist reg_exclude ".*\.so\..* .*/.* .*(.*" "$REQLIST")
 	# FIXME: external list? Set priorities/
-	REQCONVLIST="$(estrlist exclude "$REALPKGNAMELIST" "$REQLIST" | filter_multiple_provides | sed -e "s|\([^)]\)(64bit)|\1.*(64bit)|g")"
+	REQCONVLIST="$(estrlist exclude "$REALPKGNAMELIST" "$REQLIST" | filter_multiple_provides)"
 
 	# partially copied from aptU
 	#VIRTREQ=$(LANG=C apt-get install --print-uris $REQLIST 2>&1 | grep "is a virtual package provided by" | cut -f2 -d" " | sort -u)
