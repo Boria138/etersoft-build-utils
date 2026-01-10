@@ -133,8 +133,12 @@ HASHERARG="--mountpoints=/proc,/dev/pts $HASHERARG $REPACKAGE $BUILDSRCRPM"
 BUILDARGS=""
 
 if [ -z "$NOSTRICT_UNPACKAGED" ] ; then
-	BUILDARGS="$BUILDARGS --define '_unpackaged_files_terminate_build 1'"
+	BUILDARGS="--define '_unpackaged_files_terminate_build 1'"
 fi
+
+# Note: colored compiler output in hasher requires passing -fdiagnostics-color=always
+# to gcc inside chroot, which is not easily achievable through rpmbuild --define
+# (optflags self-reference causes recursion). For now, colors work in rpmbb but not here.
 
 LISTBUILTSH=""
 for i in $LISTNAMES
@@ -142,15 +146,15 @@ do
 	LOGFILE="$LOGDIR/$(basename $(basename $i .src.rpm) .tar)$MENVARG.log"
 	echo "Build in hasher ($MENV) in $HASHERDIR dir" >$LOGFILE
 	rm -f $LOGFILE.ok
-	#echog "Build in hasher: $i (arg: $HASHERARG --build-args \"$BUILDARGS\", distro: $MENV, hasherdir: $HASHERDIR)"
+	#echog "Build in hasher: $i (arg: $HASHERARG --rpmbuild-args \"$BUILDARGS\", distro: $MENV, hasherdir: $HASHERDIR)"
 	if [ -n "$REBUILD" ] ; then
-		# Note: hasher is already use renice for low priority
-		showcmd $HSH-rebuild $HASHERARG -- $HASHERDIR $i
-		($HSH-rebuild $HASHERARG -- $HASHERDIR $i 2>&1 && touch $LOGFILE.ok) | tee -a $LOGFILE | colorify
+		# Note: hasher already uses renice for low priority
+		showcmd $HSH-rebuild $HASHERARG --rpmbuild-args "$BUILDARGS" -- $HASHERDIR $i
+		(faketty "$HSH-rebuild $HASHERARG --rpmbuild-args \"$BUILDARGS\" -- $HASHERDIR $i" && touch $LOGFILE.ok) 2>&1 | tee >(stripcolors >> $LOGFILE)
 	else
-		# Note: hasher is already use renice for low priority
-		showcmd $HSH $HASHERARG --apt-config=$OURAPTCONF --build-args "$BUILDARGS" -- $HASHERDIR $i
-		($HSH $HASHERARG --apt-config=$OURAPTCONF --build-args "$BUILDARGS" -- $HASHERDIR $i 2>&1 && touch $LOGFILE.ok) | tee -a $LOGFILE | colorify
+		# Note: hasher already uses renice for low priority
+		showcmd $HSH $HASHERARG --apt-config=$OURAPTCONF --rpmbuild-args "$BUILDARGS" -- $HASHERDIR $i
+		(faketty "$HSH $HASHERARG --apt-config=$OURAPTCONF --rpmbuild-args \"$BUILDARGS\" -- $HASHERDIR $i" && touch $LOGFILE.ok) 2>&1 | tee >(stripcolors >> $LOGFILE)
 	fi
 	test -L $HASHERDIR/BUILD || ln -s chroot/usr/src/RPM/BUILD $HASHERDIR/
 	if [ ! -f $LOGFILE.ok ] ; then
