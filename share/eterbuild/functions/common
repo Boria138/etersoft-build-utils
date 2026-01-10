@@ -23,17 +23,18 @@ subst()
 fi
 
 
-if which csed 2>/dev/null >/dev/null ; then
-colorify()
+# Run command in a fake tty to preserve colored output through pipes
+# Usage: faketty "command with arguments"
+faketty()
 {
-	a= csed '/(warning|WARNING|Warning|предупреждение):/ p magenta,bold' '/(error|ERROR|Error|ошибка):/ p red,bold' '/(Command not found):/ p red,bold'
+	script -q -e -c "$*" /dev/null
 }
-else
-colorify()
+
+# Strip ANSI color codes and OSC 8 hyperlinks from input
+stripcolors()
 {
-	cat
+	sed -e $'s/\x1b\\[[0-9;]*[mK]//g' -e $'s/\x1b\\]8;;[^\x1b]*\x1b\\\\\\\\//g' -e $'s/\x1b\\]8;;[^\x07]*\x07//g'
 }
-fi
 
 print_message()
 {
