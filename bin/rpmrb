@@ -13,44 +13,53 @@ load_mod spec git
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	echog "rpmrb (Re Build) - update spec to vermajor.verminor version, build %rel release"
-	echog "Usage: rpmrb [GIRAR] [-n] [spec] [vermajor][.verminor] [rel]"
-    echog "     -n - skip install built package in hasher for testing purposes"
+	echog "Usage: rpmrb [GIRAR] [-n] [-f] [-a TASK | -A] [spec] [vermajor][.verminor] [rel]"
+	echog "     -n      - skip install built package in hasher for testing purposes"
+	echog "     -f      - force tag overwrite"
+	echog "     -a TASK - add to existing (shared) task TASK after build"
+	echog "     -A      - add to the last task after build"
 	echo  "$HELP_GIRAR"
 	echog "Example:"
 	echog "          $ rpmrb [name.spec] 22.6 alt2"
 	echog "          $ rpmrb 1.2.3"
+	echog "          $ rpmrb -A 1.2.3"
 	exit 0
 fi
 
 INSTALLINHASHER='-i'
+UPLOADARG='-u'
+FORCEARG=
 
 parse_r()
 {
-
-	case "$1" in
-		-n)
-			INSTALLINHASHER=''
-			shift
-			;;
-		-*)
-			fatal "Unsupported option "$1". See --help."
-			;;
-		*)
-	esac
+	while [ -n "$1" ] ; do
+		case "$1" in
+			-n)
+				INSTALLINHASHER=''
+				shift
+				;;
+			-f)
+				FORCEARG='-f'
+				shift
+				;;
+			-a)
+				UPLOADARG="-a $2"
+				shift 2
+				;;
+			-A)
+				UPLOADARG='-A'
+				shift
+				;;
+			-*)
+				fatal "Unsupported option $1. See --help."
+				;;
+			*)
+				break
+				;;
+		esac
+	done
 
 	VER="$1"
-
-	case "$2" in
-		-n)
-			INSTALLINHASHER=''
-			shift
-			;;
-		-*)
-			fatal "Unsupported option "$2". See --help."
-			;;
-		*)
-	esac
-
 	# need for rpmgs
 	GSSETRELEASE="$2"
 }
@@ -87,4 +96,4 @@ for SPEC in $LISTNAMES ; do
 	cd - >/dev/null
 done
 
-docmd $ETERBUILDBIN/rpmbsh $GIRARHOST $INSTALLINHASHER -u $LISTNAMES
+docmd $ETERBUILDBIN/rpmbsh $GIRARHOST $INSTALLINHASHER $FORCEARG $UPLOADARG $LISTNAMES

@@ -16,7 +16,7 @@ REMCOM=
 COMMIT=
 
 #############################
-Usage="Usage: $name [GIRAR] [-s -u -m -i -c -e ] [-b REPONAME] [-f] [spec or src.rpm]..."
+Usage="Usage: $name [GIRAR] [-s -u -a TASK -A -i -c -e ] [-b REPONAME] [-f] [spec or src.rpm]..."
 function mygetopts()
 {
 name=${0##*/}
@@ -29,6 +29,8 @@ phelp()
 	echo
 	echog "Options:"
 	echog "   -u  sign and run gear build task after build"
+	echog "   -a TASK  sign and add to existing (shared) task TASK after build"
+	echog "   -A  sign and add to the last task after build"
 	echog "   -i  install built packages in test hasher (via loginhsh -t)"
 	echog "   -f  force tag set (see rpmbs --help)"
 	echo  "$HELP_GIRAR"
@@ -44,11 +46,14 @@ phelp()
 }
 
 PASSEDARGS=
-while getopts :hieufclstwb: opt; do
+TASKARG=
+while getopts :hieufclstwb:a:A opt; do
     case $opt in
     h) phelp; exit 0;;
     t) COMMIT="--commit" ;;
     u|f|c|e|s|l) PASSEDARGS="$PASSEDARGS -$opt" ;;
+    A) TASKARG="-A" ;;
+    a) TASKARG="-a $OPTARG" ;;
     w) THOROUGH="-a" ;;
     i) INSTALLPKG=1 ;;
     b) BINARYREPONAME=$OPTARG ;;
@@ -141,5 +146,5 @@ else
 	TSKLIST="$LISTBUILT"
 fi
 
-docmd $ETERBUILDBIN/rpmbs $GIRARHOST -b $BINARYREPO $RPMBSARGS $TSKLIST
+docmd $ETERBUILDBIN/rpmbs $GIRARHOST -b $BINARYREPO $TASKARG $RPMBSARGS $TSKLIST
 
