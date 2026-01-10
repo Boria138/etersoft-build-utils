@@ -394,8 +394,7 @@ if [ -n "$UPLOADNOW" ] && is_gear $SPECDIR ; then
 	fi
 
 	if [ -n "$TASKNUMBER" ] ; then
-		showcmd "GIT_ALT=$GEARHOST girar-show $TASKNUMBER@"
-		GIT_ALT=$GEARHOST girar-show "$TASKNUMBER@"
+		docmd $ETERBUILDBIN/gita $GIRARHOST show "$TASKNUMBER@"
 	fi
 
 	exit $res
