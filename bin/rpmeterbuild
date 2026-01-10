@@ -1,0 +1,42 @@
+#!/bin/bash
+# 2025 (c) Etersoft www.etersoft.ru
+# Author: Vitaly Lipatov <lav@etersoft.ru>
+# Public domain
+#
+# Internal wrapper for uni_* build functions
+# Allows running build functions as external commands (e.g., via faketty)
+
+# load common functions, compatible with local and installed script
+. `dirname $0`/../share/eterbuild/functions/common
+load_mod build buildsrpm
+
+# Force colored compiler output (for GCC/Clang) when running via faketty
+if [ -t 1 ] ; then
+	COLOR_FLAG="-fdiagnostics-color=always"
+	export CFLAGS="${CFLAGS:+$CFLAGS }$COLOR_FLAG"
+	export CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }$COLOR_FLAG"
+fi
+
+CMD="$1"
+shift
+
+case "$CMD" in
+	rpmbuild)
+		uni_rpmbuild "$@"
+		;;
+	buildreq)
+		uni_buildreq "$@"
+		;;
+	install)
+		uni_rpminstall "$@"
+		;;
+	rm)
+		uni_rpmrm "$@"
+		;;
+	buildsrpm)
+		uni_rpmbuildsrpm "$@"
+		;;
+	*)
+		fatal "Unknown command: $CMD"
+		;;
+esac
