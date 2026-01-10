@@ -87,6 +87,9 @@ test -n "$LISTRPMARGS" && echog "Run $RPMBUILD with options: '$LISTRPMARGS'"
 
 try_enable_ccache
 
+# Export variables for rpmeterbuild subprocess
+export RPMTOPDIR CCACHE_ENABLE USEDMAKE USE_VENDOR
+
 detect_target_env
 
 assert_var PKGFORMAT
@@ -131,7 +134,7 @@ do
 	LOGFILE="$LOGDIR/`basename $NAMESRPMIN .src.rpm`$MENVARG.log"
 	rm -f $LOGFILE $LOGFILE.ok
 	#echo "Build in native system" >$LOGFILE
-	(uni_rpmbuild --commit $ln -bb $LISTRPMARGS $NODEPS --target $BUILDARCH 2>&1 && touch $LOGFILE.ok) | tee -a $LOGFILE | colorify
+	(faketty "$ETERBUILDBIN/rpmeterbuild rpmbuild --commit $ln -bb $LISTRPMARGS $NODEPS --target $BUILDARCH" && touch $LOGFILE.ok) 2>&1 | tee >(stripcolors >> $LOGFILE)
 
 	[ -r "$LOGFILE.ok" ]
 	RET=$?
