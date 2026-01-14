@@ -357,7 +357,8 @@ if [ "$1" = "show" ] ; then
 	if [ -z "$TASK" ] ; then
 		TASK="$(get_last)" || fatal "Can't get last task"
 	fi
-	docmd ssh $GEARHOST task show "$TASK"
+	showcmd "$GEARHOST>" girar-show "${TASK}@"
+	GIT_ALT=$GEARHOST girar-show "${TASK}@"
 	exit
 fi
 
