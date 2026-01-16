@@ -293,6 +293,9 @@ EOFWRAPPER
 	trap "rm -f '$GPG2_WRAPPER'; [ -n \"\$RESTORE_GPG_PROGRAM\" ] && git config --global --unset gpg.program" EXIT
 fi
 
+# convert dirs to specs before use
+LISTNAMES=$(repodirs_to_specs $LISTNAMES)
+
 if [ -n "$SIGNTAG$SETTAG" ] ; then
 	for ln in $LISTNAMES ; do
 		if set_usebranch ; then
@@ -317,9 +320,6 @@ fi
 
 # If we build from gear repo, run task
 if [ -n "$UPLOADNOW" ] && is_gear $SPECDIR ; then
-
-	# assure we have only specs or src.rpm
-	LISTNAMES=$(repodirs_to_specs $LISTNAMES)
 
 	if [ -n "$PREPARETASK" ] ; then
 		if [ -z "$TASKNUMBER" ] ; then
@@ -394,7 +394,7 @@ if [ -n "$UPLOADNOW" ] && is_gear $SPECDIR ; then
 	fi
 
 	if [ -n "$TASKNUMBER" ] ; then
-		docmd $ETERBUILDBIN/gita $GIRARHOST show "$TASKNUMBER@"
+		docmd $ETERBUILDBIN/gita $GIRARHOST show "$TASKNUMBER"
 	fi
 
 	exit $res
