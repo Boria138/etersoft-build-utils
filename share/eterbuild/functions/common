@@ -24,10 +24,15 @@ fi
 
 
 # Run command in a fake tty to preserve colored output through pipes
-# Usage: faketty "command with arguments"
+# Usage: faketty command [args...]
 faketty()
 {
-	script -q -e -c "$*" /dev/null
+	# script(1) requires a real tty on stdin; fall back in non-tty contexts.
+	if test -t 0; then
+		script -q -e -c "$*" /dev/null
+	else
+		"$@"
+	fi
 }
 
 # Strip ANSI color codes and OSC 8 hyperlinks from input

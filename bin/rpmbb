@@ -134,7 +134,7 @@ do
 	LOGFILE="$LOGDIR/`basename $NAMESRPMIN .src.rpm`$MENVARG.log"
 	rm -f $LOGFILE $LOGFILE.ok
 	#echo "Build in native system" >$LOGFILE
-	(faketty "$ETERBUILDBIN/rpmeterbuild rpmbuild --commit $ln -bb $LISTRPMARGS $NODEPS --target $BUILDARCH" && touch $LOGFILE.ok) 2>&1 | tee >(stripcolors >> $LOGFILE)
+	(faketty "$ETERBUILDBIN/rpmeterbuild" rpmbuild --commit "$ln" -bb $LISTRPMARGS $NODEPS --target "$BUILDARCH" && touch $LOGFILE.ok) 2>&1 | tee >(stripcolors >> $LOGFILE)
 
 	[ -r "$LOGFILE.ok" ]
 	RET=$?
