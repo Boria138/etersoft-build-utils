@@ -35,7 +35,7 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	echo "     delsub NNNN (package|subtask)  - remove subtask by number or by package name"
 	echo "     find   PACKAGE              - do find-package of PACKAGE"
 	echo "     log    NNNN                 - show build log for task NNNN"
-	echo "     show   NNNN                 - show subtask list for task NNNN"
+	echo "     show   NNNN [-v]            - show subtask list for task NNNN (-v for full metadata)"
 	echo "     quota                       - show quota on the remote servers"
 	echo "     cancel NNNN                 - cancel task NNNN"
 	echo "     approve NNNN SUBTASK [-m <message>] - approve subtask"
@@ -365,12 +365,21 @@ fi
 
 if [ "$1" = "show" ] ; then
 	shift
+	VERBOSE=''
+	if [ "$1" = "-v" ] || [ "$1" = "--verbose" ] ; then
+		VERBOSE=1
+		shift
+	fi
 	TASK="$(get_task_number "$1")"
 	if [ -z "$TASK" ] ; then
 		TASK="$(get_last)" || fatal "Can't get last task"
 	fi
-	showcmd "$GEARHOST>" girar-show "${TASK}@"
-	GIT_ALT=$GEARHOST girar-show "${TASK}@"
+	if [ -n "$VERBOSE" ] ; then
+		docmd ssh $GEARHOST task show "$TASK"
+	else
+		showcmd "$GEARHOST>" girar-show "${TASK}@"
+		GIT_ALT=$GEARHOST girar-show "${TASK}@"
+	fi
 	exit
 fi
 
