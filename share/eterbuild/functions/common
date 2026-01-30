@@ -578,10 +578,11 @@ check_display()
 	$XSET -b
 }
 
-# Print command line only
+# Print command line only (to stderr to not pollute stdout)
 showcmd()
 {
 	local i
+	{
 	SETCOLOR_SUCCESS
 	echo -n " \$"
 	for i in "$@" ; do
@@ -593,7 +594,7 @@ showcmd()
 	done
 	echo
 	SETCOLOR_NORMAL
-
+	} >&2
 }
 
 # Print command line and run command line
