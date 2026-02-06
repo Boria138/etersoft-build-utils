@@ -83,26 +83,6 @@ search_repology()
 	return 0
 }
 
-# Try to download src.rpm found via Repology by searching in local cached lists
-# Usage: download_repology_pkg PKGNAME
-download_repology_pkg()
-{
-	local SPKGNAME="$1"
-	local found=
-	for ((i=0; i < ${#SYSNAME[*]}; i++)) ; do
-		local SYS=${SYSNAME[$i]}
-		local URL=${SYSURL[$i]}
-		local CLIST="$OURTMPDIR/etersoft-build-utils/rpmgpall-$SYS"
-		[ -f "$CLIST" ] || continue
-		local MATCH=$(grep -i "$SPKGNAME" "$CLIST" | head -1)
-		[ -n "$MATCH" ] || continue
-		echo "Downloading $MATCH from $SYS ..."
-		download_url "$URL/$MATCH"
-		found=1
-		break
-	done
-	[ -n "$found" ] || echo "No cached list has a matching src.rpm for download. Run rpmgp -r first."
-}
 
 get_git_list()
 {
@@ -555,6 +535,11 @@ fi
 if [ -n "$ALLSYSTEM" ] ; then
 	#info "Note: you can use whohas also"
 	NFLAG=
+	FIRST_DOWNLOAD_URL=
+	FIRST_DOWNLOAD_FILE=
+	# disable download inside check_system, we download once at the end
+	SAVEDDOWNLOADALL="$DOWNLOADALL"
+	DOWNLOADALL=
 	load_systems_list
 	# search through all cached systems
 	for ((i=0; i < ${#SYSNAME[*]}; i++)) ; do
@@ -563,8 +548,14 @@ if [ -n "$ALLSYSTEM" ] ; then
 		echo
 		echo "List for ${SYSNAME[$i]}:"
 		print_list $NLIST
+		# remember first match for download
+		if [ -n "$SAVEDDOWNLOADALL" ] && [ -z "$FIRST_DOWNLOAD_URL" ] ; then
+			FIRST_DOWNLOAD_URL="${SYSURL[$i]}"
+			FIRST_DOWNLOAD_FILE="$(echo "$NLIST" | head -1)"
+		fi
 		NFLAG=1
 	done
+	DOWNLOADALL="$SAVEDDOWNLOADALL"
 	# search via Repology API (broader coverage)
 	if search_repology "$PKGNAME" ; then
 		NFLAG=1
@@ -572,8 +563,10 @@ if [ -n "$ALLSYSTEM" ] ; then
 	if [ -z "$NFLAG" ] ; then
 		echo "No search result for $PKGNAME. Check rpmgp -s for list of all systems."
 	fi
-	if [ -n "$DOWNLOADALL" ] && [ -n "$NFLAG" ] ; then
-		download_repology_pkg "$PKGNAME"
+	if [ -n "$DOWNLOADALL" ] && [ -n "$FIRST_DOWNLOAD_URL" ] ; then
+		echo
+		echo "Downloading $FIRST_DOWNLOAD_FILE ..."
+		download_url "$FIRST_DOWNLOAD_URL/$FIRST_DOWNLOAD_FILE"
 	fi
 	exit 0
 fi
