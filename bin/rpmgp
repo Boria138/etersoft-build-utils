@@ -54,6 +54,52 @@ list_filter()
 	sed -e "s|.src.rpm$||g"
 }
 
+# Search package in Repology API
+# Usage: search_repology PKGNAME
+search_repology()
+{
+	local SPKGNAME="$1"
+	local REPOLOGY_URL="https://repology.org/api/v1/project/$SPKGNAME"
+	local TMPJSON="$OURTMPDIR/etersoft-build-utils/repology.json"
+	mkdir -p "$OURTMPDIR/etersoft-build-utils/"
+	eget -q -O "$TMPJSON" "$REPOLOGY_URL" 2>/dev/null || return 1
+	[ -s "$TMPJSON" ] || return 1
+	# check valid JSON
+	jq empty "$TMPJSON" 2>/dev/null || { rm -f "$TMPJSON" ; return 1 ; }
+	local RESULTS
+	# filter to rpm-based and major distros only
+	RESULTS=$(jq -r '.[] | select(.repo | test("^(alt|fedora|epel|elrepo|rosa|mageia|openmandriva|opensuse|suse|pld|centos|rhel|scientific|oracle|rocky|alma|amazon|pclinuxos)")) | .repo + "\t" + (.srcname // .binname // .name) + "\t" + (.origversion // .version) + "\t" + .status' "$TMPJSON" | sort -u)
+	rm -f "$TMPJSON"
+	[ -n "$RESULTS" ] || return 1
+	echo
+	echo "Repology results for '$SPKGNAME':"
+	echo "$RESULTS" | while IFS='	' read -r repo srcname version status ; do
+		printf "    %-30s %-30s %s (%s)\n" "$repo" "$srcname-$version" "$version" "$status"
+	done
+	return 0
+}
+
+# Try to download src.rpm found via Repology by searching in local cached lists
+# Usage: download_repology_pkg PKGNAME
+download_repology_pkg()
+{
+	local SPKGNAME="$1"
+	local found=
+	for ((i=0; i < ${#SYSNAME[*]}; i++)) ; do
+		local SYS=${SYSNAME[$i]}
+		local URL=${SYSURL[$i]}
+		local CLIST="$OURTMPDIR/etersoft-build-utils/rpmgpall-$SYS"
+		[ -f "$CLIST" ] || continue
+		local MATCH=$(grep -i "$SPKGNAME" "$CLIST" | head -1)
+		[ -n "$MATCH" ] || continue
+		echo "Downloading $MATCH from $SYS ..."
+		download_url "$URL/$MATCH"
+		found=1
+		break
+	done
+	[ -n "$found" ] || echo "No cached list has a matching src.rpm for download. Run rpmgp -r first."
+}
+
 get_git_list()
 {
 	local name=$1
@@ -224,7 +270,7 @@ phelp()
 	echog " system  - name of system (ALT Linux by default if -a missed)"
 	echo
 	echog "Options:"
-	echog "   -a   search pkgname in all known repositories"
+	echog "   -a   search pkgname in all known repositories (and Repology)"
 	echog "   -b REPONAME  binary repository name (4.1, p5, t6 and so on)"
 	echog "   -c   check if this package exists in the ALT Linux repository"
 	echog "   -d   download all matched packages"
@@ -506,7 +552,7 @@ if [ -n "$ALLSYSTEM" ] ; then
 	#info "Note: you can use whohas also"
 	NFLAG=
 	load_systems_list
-	# search throw all systems
+	# search through all cached systems
 	for ((i=0; i < ${#SYSNAME[*]}; i++)) ; do
 		check_system $i > /dev/null
 		[ -n "$NLIST" ] || continue
@@ -515,8 +561,15 @@ if [ -n "$ALLSYSTEM" ] ; then
 		print_list $NLIST
 		NFLAG=1
 	done
+	# search via Repology API (broader coverage)
+	if search_repology "$PKGNAME" ; then
+		NFLAG=1
+	fi
 	if [ -z "$NFLAG" ] ; then
 		echo "No search result for $PKGNAME. Check rpmgp -s for list of all systems."
+	fi
+	if [ -n "$DOWNLOADALL" ] && [ -n "$NFLAG" ] ; then
+		download_repology_pkg "$PKGNAME"
 	fi
 	exit 0
 fi
