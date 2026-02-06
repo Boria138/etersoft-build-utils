@@ -67,14 +67,18 @@ search_repology()
 	# check valid JSON
 	jq empty "$TMPJSON" 2>/dev/null || { rm -f "$TMPJSON" ; return 1 ; }
 	local RESULTS
-	# filter to rpm-based and major distros only
-	RESULTS=$(jq -r 'to_entries[] | .key as $proj | .value[] | select(.repo | test("^(alt|fedora|epel|elrepo|rosa|mageia|openmandriva|opensuse|suse|pld|centos|rhel|scientific|oracle|rocky|alma|amazon|pclinuxos)")) | $proj + "\t" + .repo + "\t" + (.srcname // .binname // .name) + "\t" + (.origversion // .version) + "\t" + .status' "$TMPJSON" | sort -u)
+	# filter to rpm-based distros, output: repo\tsrcname-version.src.rpm
+	RESULTS=$(jq -r 'to_entries[] | .value[] | select(.repo | test("^(alt|fedora|epel|elrepo|rosa|mageia|openmandriva|opensuse|suse|pld|centos|rhel|scientific|oracle|rocky|alma|amazon|pclinuxos)")) | .repo + "\t" + (.srcname // .binname // .name) + "-" + (.origversion // .version) + ".src.rpm"' "$TMPJSON" | sort -u)
 	rm -f "$TMPJSON"
 	[ -n "$RESULTS" ] || return 1
-	echo
-	echo "Repology results for '$SPKGNAME':"
-	echo "$RESULTS" | while IFS='	' read -r proj repo srcname version status ; do
-		printf "    %-25s %-25s %-25s %s (%s)\n" "$proj" "$repo" "$srcname-$version" "$version" "$status"
+	local lastrepo=
+	echo "$RESULTS" | while IFS='	' read -r repo srcrpm ; do
+		if [ "$repo" != "$lastrepo" ] ; then
+			echo
+			echo "List for $repo (repology):"
+			lastrepo="$repo"
+		fi
+		echo "    $srcrpm"
 	done
 	return 0
 }
