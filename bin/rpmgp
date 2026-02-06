@@ -54,12 +54,12 @@ list_filter()
 	sed -e "s|.src.rpm$||g"
 }
 
-# Search package in Repology API
+# Search package in Repology API (substring search)
 # Usage: search_repology PKGNAME
 search_repology()
 {
 	local SPKGNAME="$1"
-	local REPOLOGY_URL="https://repology.org/api/v1/project/$SPKGNAME"
+	local REPOLOGY_URL="https://repology.org/api/v1/projects/?search=$SPKGNAME"
 	local TMPJSON="$OURTMPDIR/etersoft-build-utils/repology.json"
 	mkdir -p "$OURTMPDIR/etersoft-build-utils/"
 	eget -q -O "$TMPJSON" "$REPOLOGY_URL" 2>/dev/null || return 1
@@ -68,13 +68,13 @@ search_repology()
 	jq empty "$TMPJSON" 2>/dev/null || { rm -f "$TMPJSON" ; return 1 ; }
 	local RESULTS
 	# filter to rpm-based and major distros only
-	RESULTS=$(jq -r '.[] | select(.repo | test("^(alt|fedora|epel|elrepo|rosa|mageia|openmandriva|opensuse|suse|pld|centos|rhel|scientific|oracle|rocky|alma|amazon|pclinuxos)")) | .repo + "\t" + (.srcname // .binname // .name) + "\t" + (.origversion // .version) + "\t" + .status' "$TMPJSON" | sort -u)
+	RESULTS=$(jq -r 'to_entries[] | .key as $proj | .value[] | select(.repo | test("^(alt|fedora|epel|elrepo|rosa|mageia|openmandriva|opensuse|suse|pld|centos|rhel|scientific|oracle|rocky|alma|amazon|pclinuxos)")) | $proj + "\t" + .repo + "\t" + (.srcname // .binname // .name) + "\t" + (.origversion // .version) + "\t" + .status' "$TMPJSON" | sort -u)
 	rm -f "$TMPJSON"
 	[ -n "$RESULTS" ] || return 1
 	echo
 	echo "Repology results for '$SPKGNAME':"
-	echo "$RESULTS" | while IFS='	' read -r repo srcname version status ; do
-		printf "    %-30s %-30s %s (%s)\n" "$repo" "$srcname-$version" "$version" "$status"
+	echo "$RESULTS" | while IFS='	' read -r proj repo srcname version status ; do
+		printf "    %-25s %-25s %-25s %s (%s)\n" "$proj" "$repo" "$srcname-$version" "$version" "$status"
 	done
 	return 0
 }
