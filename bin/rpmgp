@@ -64,6 +64,31 @@ get_git_list()
 	done >$list
 }
 
+# Try to get package list from repodata (rpm repos with repomd.xml)
+# Usage: get_repodata_list URL LIST
+# Returns 0 on success, 1 if repodata not available
+get_repodata_list()
+{
+	local URL="$1"
+	local LIST="$2"
+	local BASEURL
+	# strip trailing Packages/ if present (Fedora uses letter subdirs under Packages/)
+	BASEURL=$(echo "$URL" | sed -e 's|/Packages/*$||')
+	local REPOMD
+	REPOMD=$($CURL -s "$BASEURL/repodata/repomd.xml") || return 1
+	echo "$REPOMD" | grep -q "<repomd" || return 1
+	# find primary.xml href (prefer xz/zst/gz, skip zck)
+	local PRIMARY_HREF
+	PRIMARY_HREF=$(echo "$REPOMD" | sed -n 's|.*<location href="\(repodata/.*primary\.xml\.[^"]*\)"/>.*|\1|p' | grep -v '\.zck$' | head -1)
+	[ -n "$PRIMARY_HREF" ] || return 1
+	local EXT="${PRIMARY_HREF##*.}"
+	local TMPF="$OURTMPDIR/etersoft-build-utils/primary.xml.$EXT"
+	$CURL -s "$BASEURL/$PRIMARY_HREF" > "$TMPF" || { rm -f "$TMPF" ; return 1 ; }
+	ercat "$TMPF" 2>/dev/null | grep -o 'href="[^"]*\.src\.rpm"' | sed -e 's|href="||' -e 's|"$||' -e 's|.*/||' >$LIST
+	rm -f "$TMPF"
+	[ -s "$LIST" ]
+}
+
 # Using: git_list idx [force]
 # set LIST variable to list file
 get_list()
@@ -80,6 +105,10 @@ get_list()
 	if [ ! -f "$LIST" ] || [ "$FORCE" = "force" ] ; then
 		if rhas "$SYS" "^git" ; then
 			get_git_list $SYS $URL $LIST
+			return
+		fi
+		# try repodata first (rpm repos with repomd.xml)
+		if rhas "$URL" "^https*://" && get_repodata_list "$URL" "$LIST" ; then
 			return
 		fi
 		#echo -e -n "\r"
