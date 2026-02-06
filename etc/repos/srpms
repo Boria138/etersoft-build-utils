@@ -17,11 +17,10 @@ fedora-ccrma    http://ccrma.stanford.edu/planetccrma/mirror/fedora/linux/planet
 #rosa2012        ftp://mirror.yandex.ru/rosa/rosa2012lts/repository/SRPMS/main/release
 #rosa2012u       ftp://mirror.yandex.ru/rosa/rosa2012lts/repository/SRPMS/main/updates
 #rosa2012c       ftp://mirror.yandex.ru/rosa/rosa2012lts/repository/SRPMS/contrib/release
-rosa2014        http://mirror.yandex.ru/rosa/rosa2014.1/repository/SRPMS/main/release
-rosa2014u       http://mirror.yandex.ru/rosa/rosa2014.1/repository/SRPMS/main/updates
-rosa2014c       http://mirror.yandex.ru/rosa/rosa2014.1/repository/SRPMS/contrib/release
-rosa2014f       http://mirror.yandex.ru/rosa/rosa2014.1/repository/SRPMS/main/non-free
-rosa2014r       http://mirror.yandex.ru/rosa/rosa2014.1/repository/SRPMS/main/restricted
+rosa13          http://mirror.yandex.ru/rosa/rosa13/repository/SRPMS/main/release
+rosa13t         http://mirror.yandex.ru/rosa/rosa13/repository/SRPMS/main/testing
+rosa13c         http://mirror.yandex.ru/rosa/rosa13/repository/SRPMS/contrib/release
+rosa13nf        http://mirror.yandex.ru/rosa/rosa13/repository/SRPMS/non-free/release
 rosa2021.1        http://mirror.yandex.ru/rosa/rosa2021.1/repository/SRPMS/main/release
 rosa2021.1t        http://mirror.yandex.ru/rosa/rosa2021.1/repository/SRPMS/main/testing
 rosa2021.1u       http://mirror.yandex.ru/rosa/rosa2021.1/repository/SRPMS/main/updates

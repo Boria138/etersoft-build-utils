@@ -46,7 +46,7 @@ list_systems()
 
 html_filter()
 {
-	grep "src.rpm" | sed -e "s|.*href=\"||g" | sed -e "s|\".*||g" | grep "rpm$"
+	grep "src.rpm" | sed -e "s|.*href=\"||g" | sed -e "s|\".*||g" | sed -e "s|.*/||g" | grep "rpm$"
 }
 
 list_filter()
@@ -97,7 +97,7 @@ get_list()
 		fi
 		rm -f $LIST.ok
 		# check if there is letter subdirs (Fedora)
-		for i in $(cat $LIST.tmp | sed -e "s|<a href=\"||g" -e "s|/\">.*||g") ; do
+		for i in $(grep -o 'href="[^"]*/"' $LIST.tmp | sed -e 's|href="||' -e 's|"$||' -e 's|.*/\([^/]*\)/$|\1|' | grep .) ; do
 		    rhas "$i" rpm && break
 		    # ignore more than one letter
 		    [ -n "$(echo $i | cut -c2-)" ] && continue
