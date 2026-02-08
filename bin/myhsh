@@ -136,9 +136,10 @@ if [ -z "$NOSTRICT_UNPACKAGED" ] ; then
 	BUILDARGS="--define '_unpackaged_files_terminate_build 1'"
 fi
 
-# Note: colored compiler output in hasher requires passing -fdiagnostics-color=always
-# to gcc inside chroot, which is not easily achievable through rpmbuild --define
-# (optflags self-reference causes recursion). For now, colors work in rpmbb but not here.
+# Use --faketty for colored compiler output (if supported by hasher)
+if $HSH --help 2>&1 | grep -q -- --faketty ; then
+	HASHERARG="$HASHERARG --faketty"
+fi
 
 LISTBUILTSH=""
 for i in $LISTNAMES
@@ -150,11 +151,11 @@ do
 	if [ -n "$REBUILD" ] ; then
 		# Note: hasher already uses renice for low priority
 		showcmd $HSH-rebuild $HASHERARG --rpmbuild-args "$BUILDARGS" -- $HASHERDIR $i
-		(faketty "$HSH-rebuild $HASHERARG --rpmbuild-args \"$BUILDARGS\" -- $HASHERDIR $i" && touch $LOGFILE.ok) 2>&1 | tee >(stripcolors >> $LOGFILE)
+		($HSH-rebuild $HASHERARG --rpmbuild-args "$BUILDARGS" -- $HASHERDIR $i && touch $LOGFILE.ok) 2>&1 | tee >(stripcolors >> $LOGFILE)
 	else
 		# Note: hasher already uses renice for low priority
 		showcmd $HSH $HASHERARG --apt-config=$OURAPTCONF --rpmbuild-args "$BUILDARGS" -- $HASHERDIR $i
-		(faketty "$HSH $HASHERARG --apt-config=$OURAPTCONF --rpmbuild-args \"$BUILDARGS\" -- $HASHERDIR $i" && touch $LOGFILE.ok) 2>&1 | tee >(stripcolors >> $LOGFILE)
+		($HSH $HASHERARG --apt-config=$OURAPTCONF --rpmbuild-args "$BUILDARGS" -- $HASHERDIR $i && touch $LOGFILE.ok) 2>&1 | tee >(stripcolors >> $LOGFILE)
 	fi
 	test -L $HASHERDIR/BUILD || ln -s chroot/usr/src/RPM/BUILD $HASHERDIR/
 	if [ ! -f $LOGFILE.ok ] ; then
