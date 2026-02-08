@@ -44,6 +44,6 @@ prepare_aptconfig
 # add local repo
 #hsh-run --mount=/proc,/dev/pts $HASHERDIR /usr/lib/rpm/check-python3-provs-importable.sh "$@"
 info "install $*"
-$ETERBUILDBIN/loginhsh -i -t -b $BINARYREPO -q "$@"
+docmd $ETERBUILDBIN/loginhsh -i -t -b $BINARYREPO -q "$@"
 info "run checking"
-$ETERBUILDBIN/loginhsh -i -t -b $BINARYREPO -q -r "/usr/lib/rpm/check-python3-provs-importable.sh $@"
+docmd $ETERBUILDBIN/loginhsh -i -t -b $BINARYREPO -q -r "/usr/lib/rpm/check-python3-provs-importable.sh $@"

@@ -221,7 +221,7 @@ do
 	fi
 
 	echog "cleanup_spec for $i..."
-	cleanup_spec $i
+	docmd cleanup_spec $i
 
 	subst "s|^%configure2_5x|%configure|g" $i
 
