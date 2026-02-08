@@ -10,7 +10,7 @@ load_mod build
 build_buildroot()
 {
 	local TWOPARAM="--quiet"
-	test -z "$BASENAME" && fatal "Use build_buildroot with BASENAME defined"
+	test -z "$BASENAME" && fatal "Use build_buildroot() with BASENAME defined"
 	[ -n "$RPMTOPDIR" ] && TWOPARAM="--define=_topdir $RPMTOPDIR"
 	BUILDROOT=`rpm "$TWOPARAM" --eval %buildroot | subst_namever`
 	test -z "$BUILDROOT" && fatal "Fix rpm's buildroot"
@@ -39,6 +39,7 @@ build_rpms_name()
 	# Optimization
 	eval_spec $NAMESPEC $@ | grep ":"  >$tmprpm
 	BASENAME=$(cat $tmprpm | get_var "Name")
+	test -n "$BASENAME" || fatal "Can't get Name from spec (check spec syntax)"
 	RELEASE=$(cat $tmprpm | get_var "Release")
 	VERSION=$(cat $tmprpm | get_var "Version")
 	TARBALLNAME=$(cat $tmprpm | get_var "Source.*")
