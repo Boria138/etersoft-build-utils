@@ -38,7 +38,7 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	echo "     show   NNNN [-v]            - show subtask list for task NNNN (-v for full metadata)"
 	echo "     quota                       - show quota on the remote servers"
 	echo "     cancel NNNN                 - cancel task NNNN"
-	echo "     approve NNNN SUBTASK [-m <message>] - approve subtask"
+	echo "     approve NNNN [SUBTASK] [-m <message>] - approve subtask (all subtasks if SUBTASK is omitted)"
 	echo "     acl [branch] package        - show acl for the package"
 	echo "     acl [branch] package add|del <user> - add/del acl for the package"
 	echo "     wait   [NNNN] [-q|--quiet]  - wait for task build to complete"
@@ -78,6 +78,12 @@ get_task_status()
 get_subtask()
 {
 	ssh $GEARHOST task show $1 | grep -E "(/$2.git|:package=$2$|:srpm=$2-.*src.rpm)" | sed -e "s|^ \([0-9]*\):.*|\1|g"
+}
+
+# get all subtask numbers from TASKNUMBER
+get_all_subtasks()
+{
+	ssh $GEARHOST task show $1 | sed -n 's|^ \([0-9]*\):dir=.*|\1|p'
 }
 
 _list_git_package()
@@ -496,14 +502,22 @@ if [ "$1" = "approve" ] ; then
 	done
 
 	[ -n "$TASK" ] || TASK="$(get_last)" || fatal "Can't get last task"
-	[ -n "$SUBTASK" ] || fatal "Subtask number required"
 
-	showcmd ssh $GEARHOST task approve "$TASK" "$SUBTASK"
-	if [ -n "$MESSAGETEXT" ] ; then
-		echo "$MESSAGETEXT" | ssh $GEARHOST task approve "$TASK" "$SUBTASK"
+	if [ -n "$SUBTASK" ] ; then
+		SUBTASKLIST="$SUBTASK"
 	else
-		ssh $GEARHOST task approve "$TASK" "$SUBTASK"
+		SUBTASKLIST="$(get_all_subtasks "$TASK")"
+		[ -n "$SUBTASKLIST" ] || fatal "No subtasks found in task $TASK"
 	fi
+
+	for ST in $SUBTASKLIST ; do
+		showcmd ssh $GEARHOST task approve "$TASK" "$ST"
+		if [ -n "$MESSAGETEXT" ] ; then
+			echo "$MESSAGETEXT" | ssh $GEARHOST task approve "$TASK" "$ST"
+		else
+			ssh $GEARHOST task approve "$TASK" "$ST"
+		fi
+	done
 	exit
 fi
 
