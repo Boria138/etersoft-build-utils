@@ -148,7 +148,7 @@ if [ -z "$CHANGELOGADD" ] && is_last_commit_tag ; then
 fi
 
 if [ -n "$GITLOG" ] ; then
-	git log $FROMTAG..$TOTAG --reverse --no-merges --pretty="%H %s"
+	docmd git log $FROMTAG..$TOTAG --reverse --no-merges --pretty="%H %s"
 	exit
 fi
 
@@ -157,7 +157,7 @@ if [ -n "$CHANGELOGADD" ] ; then
 else
 	# TODO: найти параметр для упрощения истории. пока - sort?
 	# Делает первую букву маленькой, убирает точку в конце строки
-	CHANGELOG="`git log $FROMTAG..$TOTAG --reverse --simplify-merges --dense --pretty="- %s" | sed -e "s|\.\$||g" | sed -e "s|- \([A-Z]\)\([a-z]\)|- \l\1\2|g" | sed -e "s|%||g"`"
+	CHANGELOG="$(git --no-pager log $FROMTAG..$TOTAG --reverse --simplify-merges --dense --pretty="- %s" | sed -e "s|\.\$||g" -e "s|- \([A-Z]\)\([a-z]\)|- \l\1\2|g" -e "s|%||g" -e "s|  +|\n  +|g")"
 	[ -n "$CHANGELOG" ] || fatal "git log was failed. Probably, you have no tag $FROMTAG in your repo. Check the source repository."
 fi
 
@@ -176,6 +176,14 @@ if [ "$INCREMENTMODE" = "-a" ] ; then
         INCREMENTMODE="-v"
     fi
 fi
+
+# overload func
+reset_release()
+{
+    local SPECNAME="$1"
+    old="$(get_release $SPECNAME)"
+    echo "${old/[0-9]/}1"
+}
 
 # increment release
 case "$INCREMENTMODE" in
@@ -208,7 +216,7 @@ fi
 add_changelog_helper "$CHANGELOG" $SPECNAME || fatal "add_changelog failed, leave all uncommitted"
 
 #git_commit_ignore_nothing $SPECNAME -m "new build $NEWREV (with rpmlog script)"
-gammit $QUIET --spec=$SPECNAME $SPECNAME
+docmd gammit $QUIET --spec=$SPECNAME $SPECNAME
 
 RGD=$(get_root_git_dir)
 hook=$RGD/.gear/new-build-postcommit-hook
