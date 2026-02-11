@@ -487,7 +487,18 @@ update_predownloaded()
 	if [ -n "$FIRSTSOURCEGIT" ] || [ -n "$GETSOURCEUUPDATE" ] ; then
 		# cp -a exclude .dir
 		mkdir -p $PSM || fatal
-		cp -a $RGD/* $PSM || fatal
+		# For Source-git packages with separate packaging branch,
+		# source files may not be in working tree. Extract from tag.
+		local tag
+		if [ -n "$FIRSTSOURCEGIT" ] ; then
+			tag=$(get_tag_by_version "$VERSION" 2>/dev/null)
+		fi
+		if [ -n "$tag" ] && git -C "$RGD" rev-parse "$tag" >/dev/null 2>/dev/null ; then
+			info "Extracting source from tag $tag for vendoring..."
+			git -C "$RGD" archive "$tag" | tar -x -C $PSM || fatal
+		else
+			cp -a $RGD/* $PSM || fatal
+		fi
 	else
 		[ -n "$CURNAME" ] || fatal "Main source is missed. Check Source: field."
 		cp -a $RGD/$CURNAME $PSM || fatal
