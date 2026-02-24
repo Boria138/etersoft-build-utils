@@ -404,6 +404,7 @@ if [ "$PKGVENDOR" = "alt" ] && [ -n "$MENV" ] ; then
 	#[ -n "$APTCONF" ] && fatal "Internal error: APTCONF already defined as $APTCONF for $MENV"
 	APTCONF=${APTCONFBASE/.sisyphus}.$MENV
 	[ "$MENV" = "sisyphus" ] && [ ! -r "$APTCONF" ] && APTCONF=${APTCONFBASE/.sisyphus}
+	[ "$MENV" = "deferred" ] && APTCONF=${APTCONFBASE}.deferred
 	
 	[ -n "$VERBOSE" ] && echog "Target ALT Linux system: `get_altdistr_version $MENV`, use \$APTCONF"
 	MENVARG="-$MENV"

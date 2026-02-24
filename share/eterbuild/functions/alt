@@ -19,7 +19,7 @@ set_target_type()
 		return 0
 	fi
 	case "$1" in
-		("DD" | "SS" | "EE" | "sisyphus")
+		("DD" | "SS" | "EE" | "sisyphus" | "deferred")
 			MENV="$1"
 			return 0;
 			;;
@@ -109,7 +109,7 @@ pkg_release_check()
 	# can be set from korinf config
 	[ -z "$KORINFTARGETRELEASE" ] || STREL=$KORINFTARGETRELEASE
 # FIXME! broken for release more than 9
-	if [ "$MENV" = "sisyphus" ] ; then
+	if [ "$MENV" = "sisyphus" ] || [ "$MENV" = "deferred" ] ; then
 		for i in $@ ; do
 			if rhas "$i" "($STREL|$STRELDEF)[0-9]+\.M[0-9][0-9]\.[0-9]+" ; then
 				# Значит не тот релиз
