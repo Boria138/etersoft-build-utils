@@ -607,16 +607,21 @@ update_predownloaded()
 
 	local i
 	local rust_dir=''
-	for i in */Cargo.lock ; do
+	# search Cargo.lock at any depth (e.g. bindings/python/Cargo.lock for HuggingFace projects)
+	for i in $(find . -name Cargo.lock -not -path "./vendor/*" 2>/dev/null | sed 's|^\./||') ; do
 		[ -s "$i" ] || continue
 		rust_dir=$(dirname $i)
+		[ "$rust_dir" = "." ] && continue
 		[ -d "./vendor" ] && continue
 
 		local COMMITMSG=''
+		# compute relative path from rust_dir back to current dir for vendor placement
+		local depth=$(echo "$rust_dir" | tr '/' '\n' | wc -l)
+		local vendor_rel=$(printf '../%.0s' $(seq 1 $depth))vendor
 
 		info "Detected '$i' install hook ..."
 		cd $rust_dir || fatal
-		docmd cargo vendor --verbose ../vendor || fatal
+		docmd cargo vendor --verbose $vendor_rel || fatal
 		COMMITMSG="update vendored cargo modules in $rust_dir dir with cargo vendor for $VERSION (see $SDNAME in .gear/rules)"
 
 		if [ -s $RGD/.gear/predownloaded-postinstall-hook ] ; then
