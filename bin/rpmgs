@@ -642,8 +642,38 @@ update_predownloaded()
 	#### end of cargo only part
 
 
+	#### yarn only part
+	if [ -s "./yarn.lock" ] ; then
+		local COMMITMSG=''
+		local PRODUCTION=''
+
+		[ "$MODE" = "production" ] && PRODUCTION='--production'
+
+		info "Detected yarn.lock install hook, running ..."
+		docmd yarn install --frozen-lockfile --ignore-scripts $PRODUCTION || fatal
+		COMMITMSG="update node_modules with yarn install $PRODUCTION for $VERSION (see $SDNAME in .gear/rules)"
+
+		if [ -s $RGD/.gear/predownloaded-postinstall-hook ] ; then
+		        info "Detected .gear/predownloaded-postinstall-hook, running it ..."
+			$RUNHOOK $RGD/.gear/predownloaded-postinstall-hook $MODE $VERSION
+		fi
+
+		info "Removing binaries ..."
+		if [ -d vendor ] ; then
+			find vendor -name "*.a" -type f -delete -print
+			find vendor -name "*.so" -type f -delete -print
+			find vendor -name "*.dll" -type f -delete -print
+		fi
+
+		# drop all exclude node_modules
+		# TODO: correct .* removing
+		rm -rf $(ls -1 | grep -v node_modules) .[a-zA-Z0-9]*
+
+		# remove build related modules we have in system
+		rm -rfv node_modules/{npm,node-gyp}/ node_modules/.bin/{npm,npx,node-gyp}
+
 	#### npm only part
-	if [ -s "./package.json" ] ; then
+	elif [ -s "./package.json" ] ; then
 
 		# CHECKME: drop postinstall due run dev scripts during install --production
 		# replace with fake commands?
@@ -687,7 +717,7 @@ update_predownloaded()
 		#epm assure jq || fatal
 		#(cd node_modules && rm -rf $(jq -r -c '.devDependencies | keys[]' ../package.json))
 	fi
-        ### end of npm part
+        ### end of yarn/npm part
 
 	# some modules contains own .git
 	find -type d -name ".git" -print -exec rm -rvf "{}" \;
