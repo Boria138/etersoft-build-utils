@@ -318,6 +318,11 @@ if [ "$1" = "add" ] || [ "$1" = "Add" ] ; then
 		TASK="$(get_task_number $2)"
 		ADDCMD="$3"
 		shift 3
+	elif is_task_number "$2" && [ "$3" = "before" ] && isnumber "$4" && estrlist has "$5" $ADDCMDLIST ; then
+		TASK="$(get_task_number $2)"
+		SUBTASK="$4"
+		ADDCMD="$5"
+		shift 5
 	elif is_task_number "$2" && isnumber "$3" && estrlist has "$4" $ADDCMDLIST ; then
 		TASK="$(get_task_number $2)"
 		SUBTASK="$3"
