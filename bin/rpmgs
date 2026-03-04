@@ -642,6 +642,35 @@ update_predownloaded()
 	#### end of cargo only part
 
 
+	#### dotnet only part
+	local sln_file
+	sln_file=$(find . -maxdepth 2 -name "*.sln" -type f 2>/dev/null | head -1)
+	if [ -n "$sln_file" ] && [ ! -d "./vendor" ] ; then
+		local COMMITMSG=''
+
+		# Remove upstream SDK version pinning to use system dotnet
+		rm -f global.json
+
+		info "Detected '$sln_file' dotnet solution, running dotnet restore ..."
+		export DOTNET_CLI_TELEMETRY_OPTOUT=true
+		export DOTNET_NOLOGO=1
+		docmd dotnet restore "$sln_file" \
+			--use-current-runtime \
+			--packages vendor || fatal
+		COMMITMSG="update vendored NuGet packages with dotnet restore for $VERSION (see $SDNAME in .gear/rules)"
+
+		if [ -s $RGD/.gear/predownloaded-postinstall-hook ] ; then
+		        info "Detected .gear/predownloaded-postinstall-hook, running it ..."
+			$RUNHOOK $RGD/.gear/predownloaded-postinstall-hook $MODE $VERSION
+		fi
+
+		# drop all exclude vendor
+		# TODO: correct .* removing
+		rm -rf $(ls -1 | grep -v vendor) .[a-zA-Z0-9]*
+	fi
+	#### end of dotnet only part
+
+
 	#### yarn only part
 	if [ -s "./yarn.lock" ] ; then
 		local COMMITMSG=''
