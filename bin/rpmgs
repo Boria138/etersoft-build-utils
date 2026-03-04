@@ -509,6 +509,10 @@ update_predownloaded()
 	local RUNHOOK="sh"
 	[ -n "$VERBOSE" ] && RUNHOOK="sh -x"
 
+	# Track vendored directories for final cleanup
+	local KEEP_DIRS=""
+	local HAS_CARGO=""
+
 	if [ -s $RGD/.gear/predownloaded-preinstall-hook ] ; then
 		echo
 		info "Detected .gear/predownloaded-preinstall-hook, running it ..."
@@ -533,14 +537,7 @@ update_predownloaded()
 			$RUNHOOK $RGD/.gear/predownloaded-postinstall-hook $MODE $VERSION
 		fi
 
-		info "Removing binaries ..."
-		find vendor -name "*.a" -type f -delete -print
-		find vendor -name "*.so" -type f -delete -print
-		find vendor -name "*.dll" -type f -delete -print
-
-		# drop all exclude vendor
-		# TODO: correct .* removing
-		rm -rf $(ls -1 | grep -v vendor) .[a-zA-Z0-9]*
+		KEEP_DIRS="$KEEP_DIRS vendor"
 	fi
 	#### end of composer only part
 
@@ -561,16 +558,9 @@ update_predownloaded()
 			$RUNHOOK $RGD/.gear/predownloaded-postinstall-hook $MODE $VERSION
 		fi
 
-		info "Removing binaries ..."
-		find vendor -name "*.a" -type f -delete -print
-		find vendor -name "*.so" -type f -delete -print
-		find vendor -name "*.dll" -type f -delete -print
-
-		# drop all exclude vendor
-		# TODO: correct .* removing
-		rm -rf $(ls -1 | grep -v vendor) .[a-zA-Z0-9]*
+		KEEP_DIRS="$KEEP_DIRS vendor"
 	fi
-	#### end of composer only part
+	#### end of go only part
 
 
 	#### cargo only part
@@ -599,10 +589,8 @@ update_predownloaded()
 		rm -rv vendor/winapi-*-pc-windows-gnu/lib/{*.lib,*.a}
 		rm -rv vendor/windows*/lib/{*.lib,*.a}
 
-		# drop all exclude vendor
-		# TODO: correct .* removing
-		# TODO: move from temp dir
-		rm -rf $(ls -1 | grep -v vendor | grep -v Cargo.lock) .[a-zA-Z0-9]* *.md
+		HAS_CARGO=1
+		KEEP_DIRS="$KEEP_DIRS vendor Cargo.lock"
 	fi
 
 	local i
@@ -634,10 +622,8 @@ update_predownloaded()
 		# can remove binaries from definitely unused packages
 		rm -rv vendor/winapi-*-pc-windows-gnu/lib/*.a
 
-		# drop all exclude vendor
-		# TODO: correct .* removing
-		# TODO: move from temp dir
-		rm -rf $(ls -1 | grep -v vendor | grep -v Cargo.lock) .[a-zA-Z0-9]* *.md
+		HAS_CARGO=1
+		KEEP_DIRS="$KEEP_DIRS vendor Cargo.lock"
 	done
 	#### end of cargo only part
 
@@ -664,9 +650,7 @@ update_predownloaded()
 			$RUNHOOK $RGD/.gear/predownloaded-postinstall-hook $MODE $VERSION
 		fi
 
-		# drop all exclude vendor
-		# TODO: correct .* removing
-		rm -rf $(ls -1 | grep -v vendor) .[a-zA-Z0-9]*
+		KEEP_DIRS="$KEEP_DIRS vendor"
 	fi
 	#### end of dotnet only part
 
@@ -687,19 +671,10 @@ update_predownloaded()
 			$RUNHOOK $RGD/.gear/predownloaded-postinstall-hook $MODE $VERSION
 		fi
 
-		info "Removing binaries ..."
-		if [ -d vendor ] ; then
-			find vendor -name "*.a" -type f -delete -print
-			find vendor -name "*.so" -type f -delete -print
-			find vendor -name "*.dll" -type f -delete -print
-		fi
-
-		# drop all exclude node_modules
-		# TODO: correct .* removing
-		rm -rf $(ls -1 | grep -v node_modules) .[a-zA-Z0-9]*
-
 		# remove build related modules we have in system
 		rm -rfv node_modules/{npm,node-gyp}/ node_modules/.bin/{npm,npx,node-gyp}
+
+		KEEP_DIRS="$KEEP_DIRS node_modules"
 
 	#### npm only part
 	elif [ -s "./package.json" ] ; then
@@ -726,17 +701,6 @@ update_predownloaded()
 		# dedup restores removed modules!
 		#docmd npm dedup
 
-		info "Removing binaries ..."
-		if [ -d vendor ] ; then
-			find vendor -name "*.a" -type f -delete -print
-			find vendor -name "*.so" -type f -delete -print
-			find vendor -name "*.dll" -type f -delete -print
-		fi
-
-		# drop all exclude node_modules
-		# TODO: correct .* removing
-		rm -rf $(ls -1 | grep -v node_modules) .[a-zA-Z0-9]*
-
 		# remove build related modules we have in system
 		#if [ -d node_modules/node-gyp/ ] ; then
 		rm -rfv node_modules/{npm,node-gyp}/ node_modules/.bin/{npm,npx,node-gyp}
@@ -745,8 +709,31 @@ update_predownloaded()
 
 		#epm assure jq || fatal
 		#(cd node_modules && rm -rf $(jq -r -c '.devDependencies | keys[]' ../package.json))
+
+		KEEP_DIRS="$KEEP_DIRS node_modules"
 	fi
         ### end of yarn/npm part
+
+	# Final cleanup: remove source files, keep only vendored directories
+	if [ -n "$KEEP_DIRS" ] ; then
+		# Remove binaries from vendored directories (skip cargo — it checks integrity)
+		if [ -z "$HAS_CARGO" ] ; then
+			info "Removing binaries from vendored directories ..."
+			for i in $KEEP_DIRS ; do
+				[ -d "$i" ] || continue
+				find "$i" -name "*.a" -type f -delete -print
+				find "$i" -name "*.so" -type f -delete -print
+				find "$i" -name "*.dll" -type f -delete -print
+			done
+		fi
+
+		info "Cleaning up, keeping:$KEEP_DIRS ..."
+		local grep_args=""
+		for i in $KEEP_DIRS ; do
+			grep_args="$grep_args -e ^${i}$"
+		done
+		rm -rf $(ls -1 | grep -v $grep_args) .[a-zA-Z0-9]*
+	fi
 
 	# some modules contains own .git
 	find -type d -name ".git" -print -exec rm -rvf "{}" \;
