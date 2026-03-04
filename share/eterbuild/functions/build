@@ -54,7 +54,11 @@ uni_rpmbuild()
 		# build package without MENV checking
 		if true || [ "$MENV" = "sisyphus" ] ; then
 			LANG=$NEULOCALE docmd $NICE $GEAR $COMMIT $GEARRULES --rpmbuild -- $RPMBUILD "$TWOPARAM" "$THRPARAM" "$FOURPARAM" "$FIVEPARAM" "$SIXPARAM" "$SEVENPARAM" "$@" || RET=$?
-			[ -z "$COMMANDAFTER" ] || docmd $COMMANDAFTER
+			if [ -n "$COMMANDAFTER" ] ; then
+				# gear --commit may leave stale index.lock on failure
+				rm -fv "$SPECDIR/.git/index.lock"
+				docmd $COMMANDAFTER
+			fi
 		else
 			fatal "Build backported src.rpm from git is unsupported now"
 			# build src.rpm via hasher (on ALT)
