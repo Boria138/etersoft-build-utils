@@ -151,6 +151,20 @@ get_last_tag()
         git describe --abbrev=0 --tags 2>/dev/null
 }
 
+# Convert package version to valid git tag name
+# RPM allows ~ and + in versions, but git tags cannot contain ~
+# (git interprets ~ as ancestor reference)
+version_to_tag()
+{
+	echo "$1" | sed -e 's|~|.tilde.|g' -e 's|+|.plus.|g'
+}
+
+# Convert git tag name back to package version
+tag_to_version()
+{
+	echo "$1" | sed -e 's|\.tilde\.|~|g' -e 's|\.plus\.|+|g'
+}
+
 # check if tag is last commit tag (put on the last commit). if tag is missed, check with the last tag in repo
 is_last_commit_tag()
 {
