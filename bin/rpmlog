@@ -138,8 +138,12 @@ if [ -z "$FROMTAG" ] ; then
 	build_rpms_name $SPECNAME
 	[ -n "$VERSION" ] || fatal "Can't get package version"
 	[ -n "$RELEASE" ] || fatal "Can't get package release"
-	FROMTAG="$VERSION-$RELEASE"
-	# FIXME: if don't exists, use last tag?
+	FROMTAG="$(version_to_tag "$VERSION-$RELEASE")"
+	# If tag doesn't exist, find the commit that introduced current version-release
+	if ! git rev-parse --verify "$FROMTAG" >/dev/null 2>&1 ; then
+		FROMTAG=$(git log --format=%H -1 -S "$VERSION-$RELEASE" -- "$SPECNAME")
+		[ -n "$FROMTAG" ] || fatal "Can't find tag or commit for $VERSION-$RELEASE"
+	fi
 fi
 
 if [ -z "$CHANGELOGADD" ] && is_last_commit_tag ; then

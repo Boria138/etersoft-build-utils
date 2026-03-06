@@ -122,19 +122,20 @@ LISTRPMARGS=$@
 __gear_create_tag()
 {
 	local GEARCTAG=gear-create-tag
+	local TAGNAME="$(version_to_tag "$VERSION-$RELEASE")"
 	if [ "$1" = "pipe" ] ; then
 		shift
 		if [ -n "$SETTAG" ] ; then
-			a= git tag $FORCE "$VERSION-$RELEASE" -m "$BASENAME $VERSION-$RELEASE" "$@" 2>&1
+			a= git tag $FORCE "$TAGNAME" -m "$BASENAME $VERSION-$RELEASE" "$@" 2>&1
 			return
 		fi
-		$GEARCTAG $FORCE -n "$VERSION-$RELEASE" -m "$BASENAME $VERSION-$RELEASE" "$@" 2>&1
+		$GEARCTAG $FORCE -n "$TAGNAME" -m "$BASENAME $VERSION-$RELEASE" "$@" 2>&1
 	else
 		if [ -n "$SETTAG" ] ; then
-			docmd git tag $FORCE "$VERSION-$RELEASE" -m "$BASENAME $VERSION-$RELEASE" "$@"
+			docmd git tag $FORCE "$TAGNAME" -m "$BASENAME $VERSION-$RELEASE" "$@"
 			return
 		fi
-		docmd $GEARCTAG $FORCE -n "$VERSION-$RELEASE" -m "$BASENAME $VERSION-$RELEASE" "$@"
+		docmd $GEARCTAG $FORCE -n "$TAGNAME" -m "$BASENAME $VERSION-$RELEASE" "$@"
 	fi
 }
 
