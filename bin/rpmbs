@@ -259,6 +259,7 @@ if [ -n "$CACHEGPGKEY" ] ; then
 	fi
 	GPG_NAME=$(rpm --eval '%{_gpg_name}')
 	echog "Caching GPG key '$GPG_NAME' in agent (enter passphrase when prompted)..."
+	export GPG_TTY=$(tty)
 	echo "test" | gpg2 -u "$GPG_NAME" --clearsign > /dev/null || fatal "Failed to cache GPG key"
 	echog "GPG key cached successfully."
 	# If only -G was specified (no sign/build operations), exit
