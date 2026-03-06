@@ -172,5 +172,10 @@ if [ -n "$SHARENETWORK" ] ; then
 	$HSH-run $HASHERDIR --rooter -- sh -c 'cat >/etc/resolv.conf' </etc/resolv.conf
 fi
 
+if ! tty -s ; then
+	echog "No tty available, skipping interactive shell"
+	exit
+fi
+
 echog "You are in hasher shell"
 docmd $HSH-shell $HASHERDIR $SHELLHASHERARG $ROOTER --wait-lock --shell
