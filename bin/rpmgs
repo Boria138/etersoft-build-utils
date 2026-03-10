@@ -325,10 +325,15 @@ commit_tarball_to_dir()
 			sh -x ../.gear/postdownload-hook
 			cd - >/dev/null
 		fi
+		local commit_msg
 		if [ -n "$CURRENTURL" ] ; then
-			docmd git commit -m "just import $CURRENTURL to $(basename $CURNAME) subdir with rpmgs script"
+			commit_msg="just import $CURRENTURL to $(basename $CURNAME) subdir with rpmgs script"
 		else
-			docmd git commit -m "just import $(basename $TARBALL) with rpmgs script"
+			commit_msg="just import $(basename $TARBALL) with rpmgs script"
+		fi
+		if ! docmd git commit -m "$commit_msg" ; then
+			rm -fv "$TARBALL"
+			fatal "Sources were not updated (nothing to commit). Check Source-url and version."
 		fi
 		rm -fv "$TARBALL"
 	else
@@ -960,9 +965,14 @@ fi
 			will_commit || continue
 			echog "Try to fetch ${GETSOURCEGIT} for $spec"
 			#TODO error if incompatible
+			HEAD_BEFORE=$(git rev-parse HEAD)
 			docmd git remote add upstream $GETSOURCEGIT
 			docmd git fetch --tags upstream
 			update_master_branch_to "$GSSETVERSION"
+			HEAD_AFTER=$(git rev-parse HEAD)
+			if [ "$HEAD_BEFORE" = "$HEAD_AFTER" ] ; then
+				fatal "Sources were not updated: HEAD unchanged after merge. Check upstream URL and tag."
+			fi
 			FIRSTSOURCEGIT=1
 
 			update_post_git_submodules
