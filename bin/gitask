@@ -250,7 +250,7 @@ if [ "$1" = "ls" ] ; then
 	# TODO: add support ls -a (with subtasks)
 	if [ -n "$1" ] || ! isatty ; then
 		showcmd "$GEARHOST>" girar-show "$@"
-		GIT_ALT=$GEARHOST girar-show "$@"
+		GIT_ALT=$GEARHOST girar-show "$@" | sed 's/\x1b\[[0-9;]*m//g'
 	else
 		showcmd "$GEARHOST>" 'girar-show | head -n20'
 		GIT_ALT=$GEARHOST girar-show | head -n20
