@@ -55,6 +55,31 @@ LISTRPMARGS=$@
 
 }
 
+# Extract Source tarball from src.rpm file
+# Args: SRCRPM TARGET
+extract_from_srcrpm()
+{
+	local SRCRPM="$(realpath "$1")"
+	local TARGET="$2"
+	local TMPDIR
+	TMPDIR=$(mktemp -d) || fatal "Can't create temp dir"
+	info "Extracting Source tarball from $(basename "$SRCRPM") ..."
+	docmd $ERCCMD -C "$TMPDIR" x "$SRCRPM" || { rm -rf "$TMPDIR" ; fatal "Can't extract src.rpm" ; }
+	# find the source tarball inside extracted directory
+	local TARBALL
+	TARBALL=$(find "$TMPDIR" -name '*.tar*' -o -name '*.tgz' -o -name '*.zip' -o -name '*.7z' | head -1)
+	if [ -z "$TARBALL" ] ; then
+		rm -rf "$TMPDIR"
+		fatal "No source tarball found in src.rpm"
+	fi
+	info "Found source tarball: $(basename "$TARBALL")"
+	repack_tarball "$TARBALL" "$TARGET"
+	local RET=$?
+	rm -rf "$TMPDIR"
+	rm -f "$SRCRPM"
+	return $RET
+}
+
 repack_tarball()
 {
 	# TODO: move it into repack
@@ -122,6 +147,15 @@ download_to()
 	if echo "$URL" | grep -q "\.git$" || echo "$URL" | grep -q -E "github\.com.*/(tree|commit)/" ; then
 		git_to_tarball "$URL" "$TARGET"
 		local RET=$?
+		popd
+		return $RET
+	fi
+	# handle src.rpm: extract Source tarball from it
+	if echo "$URL" | grep -q '\.src\.rpm$' ; then
+		local DF="$(basename "$URL")"
+		download_url "$URL" && DF="$DOWNLOADEDNAME" && extract_from_srcrpm "$DF" "$TARGET"
+		local RET=$?
+		[ "$RET" = "0" ] || rm -fv "$DF" "$TARGET"
 		popd
 		return $RET
 	fi
@@ -260,7 +294,7 @@ function print_error()
 {
 	echog "Can't find any spec file. It is possible you run this script not in git dir."
 	echog "If you use old style build, run rpmgs with spec name as arg."
-	echog "If you wish download src.rpm, use rpmgp script."
+	echog "You can also use src.rpm URL in Source-url."
 	exit 1
 }
 
