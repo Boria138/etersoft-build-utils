@@ -216,7 +216,11 @@ for i, t in enumerate(tasks):
             pkgs.append("{}.git={}".format(pkg, tag))
         elif pkg:
             pkgs.append(pkg)
-    parts = [str(t["id"]), t["state"], tryiter]
+    tid = str(t["id"])
+    if use_color:
+        url = "https://packages.altlinux.org/ru/tasks/{}/".format(tid)
+        tid = "\033]8;;{}\033\\{}\033]8;;\033\\".format(url, tid)
+    parts = [tid, t["state"], tryiter]
     if flags:
         parts.extend(flags)
     parts.append(t["repo"])
