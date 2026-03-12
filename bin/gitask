@@ -17,7 +17,7 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 	docmd ssh $GEARHOST task help | sed -e "s|abort|cancel|g"
 	echo
 	echo "Examples:"
-	echo "     ls [-a|--all] [-u|--user USER] [-w [N]]          - list tasks (--all for all users) (-w [N] for update every N seconds)"
+	echo "     ls [-a] [-u USER] [-s STATE] [-r REPO] [-w [N]]  - list tasks (ls --help for details)"
 	echo "     new    [branch]             - create new task on branch (Sisyphus by default)"
 	echo "     run [--test-only] [NNNN] [NNNN2] [-m <message>] - run task NNNN"
 	echo "     commit [NNNN] [NNNN2] [-m <message>]       - commit task(s) NNNN, [NNNN2]"
@@ -258,62 +258,104 @@ for num in sorted(task.get("subtasks", {}).keys(), key=int):
 
 do_task_list()
 {
-	if [ "$1" = "--all" ] || [ "$1" = "-a" ] ; then
-		shift
-		local api_base json
-		if api_base=$(_get_api_base) ; then
-			json=$(curl -sf "$api_base/tasks?state=ALL" 2>/dev/null)
-			if [ -n "$json" ] ; then
-				local use_color=0
-				isatty && use_color=1
-				echo "$json" | _format_task_list "$use_color" 0
+	if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
+		echo "ls - list tasks"
+		echo "Usage: gita ls [options] [TASK_NUMBER]"
+		echo "  -a, --all                 - list all users, all states"
+		echo "  -u, --user USER           - list tasks for USER"
+		echo "  -s, --state STATE[,STATE]  - filter by state"
+		echo "      states: NEW, AWAITING, PENDING, BUILDING, COMMITTING,"
+		echo "              TESTED, FAILED, DONE, EPERM, POSTPONED, ALL"
+		echo "  -r, --repo REPO[,REPO]    - filter by repo (e.g. sisyphus, p11)"
+		echo "  -w [N]                    - watch mode, refresh every N seconds (default 10)"
+		echo "  TASK_NUMBER               - show build log for task"
+		return
+	fi
+
+	# parse options
+	local OPT_USER="" OPT_STATE="" OPT_REPO="" OPT_ALL=""
+	while [ -n "$1" ] ; do
+		case "$1" in
+			--all|-a)
+				OPT_ALL=1
+				shift
+				;;
+			--user|-u)
+				OPT_USER="$2"
+				shift 2
+				;;
+			--state|-s)
+				OPT_STATE="$2"
+				shift 2
+				;;
+			--repo|-r)
+				OPT_REPO="$2"
+				shift 2
+				;;
+			-w)
+				local WN="$2"
+				[ -z "$WN" ] && WN=10
+				watch -c -n $WN $0 ls
 				return
-			fi
-		fi
-		docmd ssh $GEARHOST task ls --user=ALL --state=ALL "$@"
-		return
-	fi
-	if [ "$1" = "--user" ] || [ "$1" = "-u" ] ; then
-		local U="$2"
-		shift 2
-		local api_base json
-		if api_base=$(_get_api_base) ; then
-			json=$(curl -sf "$api_base/tasks?user=$U" 2>/dev/null)
-			if [ -n "$json" ] ; then
-				local use_color=0
-				isatty && use_color=1
-				echo "$json" | _format_task_list "$use_color" 0
-				return
-			fi
-		fi
-		docmd ssh $GEARHOST task ls --user=$U "$@"
-		return
-	fi
-	if [ "$1" = "-w" ] ; then
-		local WN="$2"
-		[ -z "$WN" ] && WN=10
-		watch -c -n $WN $0 ls
-		return
-	fi
+				;;
+			*)
+				break
+				;;
+		esac
+	done
+
 	# task number argument → show log (API doesn't provide build logs)
 	if [ -n "$1" ] ; then
 		showcmd "$GEARHOST>" girar-show "$@"
 		GIT_ALT=$GEARHOST girar-show "$@" | stripcolors
 		return
 	fi
-	# default: list own tasks
-	local api_base user json
-	if api_base=$(_get_api_base) && user=$(_get_girar_user) ; then
-		json=$(curl -sf "$api_base/tasks?user=$user" 2>/dev/null)
+
+	# build API query
+	local api_base user json api_params=""
+	if api_base=$(_get_api_base) ; then
+		if [ -n "$OPT_ALL" ] ; then
+			api_params="state=ALL"
+		else
+			if [ -n "$OPT_USER" ] ; then
+				api_params="user=$OPT_USER"
+			else
+				user=$(_get_girar_user) || { _do_task_list_ssh "$OPT_ALL" "$OPT_USER" "$OPT_STATE" ; return ; }
+				api_params="user=$user"
+			fi
+			[ -n "$OPT_STATE" ] && api_params="$api_params&state=$OPT_STATE"
+		fi
+		[ -n "$OPT_REPO" ] && api_params="$api_params&repo=$OPT_REPO"
+
+		json=$(curl -sf "$api_base/tasks?$api_params" 2>/dev/null)
 		if [ -n "$json" ] ; then
 			local use_color=0 limit=0
-			isatty && use_color=1 && limit=20
+			isatty && use_color=1
+			# limit only for default listing (no filters)
+			[ -z "$OPT_ALL" ] && [ -z "$OPT_STATE" ] && [ -z "$OPT_REPO" ] && [ -z "$OPT_USER" ] && isatty && limit=20
 			echo "$json" | _format_task_list "$use_color" "$limit"
-			[ -n "$limit" ] && [ "$limit" -gt 0 ] && isatty && echo "(end of head -n$limit output)"
+			[ "$limit" -gt 0 ] 2>/dev/null && isatty && echo "(end of head -n$limit output)"
 			return
 		fi
 	fi
-	# fallback to girar-show
+
+	# fallback to SSH/girar-show
+	_do_task_list_ssh "$OPT_ALL" "$OPT_USER" "$OPT_STATE"
+}
+
+# SSH fallback for do_task_list
+_do_task_list_ssh()
+{
+	local OPT_ALL="$1" OPT_USER="$2" OPT_STATE="$3"
+	if [ -n "$OPT_ALL" ] ; then
+		docmd ssh $GEARHOST task ls --user=ALL --state=ALL
+		return
+	fi
+	if [ -n "$OPT_USER" ] ; then
+		docmd ssh $GEARHOST task ls --user=$OPT_USER
+		return
+	fi
+	# default: own tasks via girar-show
 	if ! isatty ; then
 		showcmd "$GEARHOST>" girar-show
 		GIT_ALT=$GEARHOST girar-show | stripcolors
@@ -469,18 +511,19 @@ if [ "$1 $2" = "wait --help" ] || [ "$1 $2" = "wait -h" ] ; then
 	exit 0
 fi
 
+# ls before generic --help handler (ls has its own --help)
+if [ "$1" = "ls" ] ; then
+	shift
+	do_task_list "$@"
+	exit
+fi
+
 if [ "$lastarg" = "--help" ] ; then
 	docmd ssh $GEARHOST task "$@"
 	exit
 fi
 
 # task command below
-
-if [ "$1" = "ls" ] ; then
-	shift
-	do_task_list "$@"
-	exit
-fi
 
 if [ "$1" = "delsub" ] ; then
 	shift 
