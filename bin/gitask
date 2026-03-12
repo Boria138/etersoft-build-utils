@@ -105,6 +105,57 @@ get_last_from()
 	echo "$FROMSTR"
 }
 
+do_task_list()
+{
+	if [ "$1" = "--all" ] || [ "$1" = "-a" ] ; then
+		shift
+		docmd ssh $GEARHOST task ls --user=ALL --state=ALL "$@"
+		return
+	fi
+	# TODO: support --user=
+	if [ "$1" = "--user" ] || [ "$1" = "-u" ] ; then
+		local U="$2"
+		shift 2
+		docmd ssh $GEARHOST task ls --user=$U "$@"
+		return
+	fi
+	if [ "$1" = "-w" ] ; then
+		local WN="$2"
+		[ -z "$WN" ] && WN=10
+		watch -c -n $WN $0 ls
+		return
+	fi
+	# TODO: with arg(s) — subtask
+	# TODO: add support ls -a (with subtasks)
+	if [ -n "$1" ] || ! isatty ; then
+		showcmd "$GEARHOST>" girar-show "$@"
+		GIT_ALT=$GEARHOST girar-show "$@" | stripcolors
+	else
+		showcmd "$GEARHOST>" 'girar-show | head -n20'
+		GIT_ALT=$GEARHOST girar-show | head -n20
+		echo "(end of head -n20 output)"
+	fi
+}
+
+do_task_show()
+{
+	local TASK="$1"
+	local VERBOSE="$2"
+	if [ -n "$VERBOSE" ] ; then
+		docmd ssh $GEARHOST task show "$TASK"
+	else
+		showcmd "$GEARHOST>" girar-show "${TASK}@"
+		GIT_ALT=$GEARHOST girar-show "${TASK}@"
+	fi
+}
+
+do_task_log()
+{
+	local TASK="$1"
+	showcmd "$GEARHOST>" girar-show "$TASK"
+	GIT_ALT=$GEARHOST girar-show "$TASK"
+}
+
 NEXTCOMMAND=''
 
 $EPMCMD assure girar-show girar-utils
@@ -193,8 +244,7 @@ if [ "$1" = "log" ] ; then
 	shift
 	TASK="$(get_task_number $1)"
 	[ -n "$TASK" ] || TASK="$(get_last)" || fatal
-	showcmd "$GEARHOST>" girar-show "$TASK"
-	GIT_ALT=$GEARHOST girar-show "$TASK"
+	do_task_log "$TASK"
 	exit
 fi
 
@@ -228,34 +278,7 @@ fi
 
 if [ "$1" = "ls" ] ; then
 	shift
-	if [ "$1" = "--all" ] || [ "$1" = "-a" ] ; then
-		shift
-		docmd ssh $GEARHOST task ls --user=ALL --state=ALL "$@"
-		exit
-	fi
-    # TODO: support --user=
-	if [ "$1" = "--user" ] || [ "$1" = "-u" ] ; then
-		U="$2"
-		shift 2
-		docmd ssh $GEARHOST task ls --user=$U "$@"
-		exit
-	fi
-	if [ "$1" = "-w" ] ; then
-		WN="$2"
-		[ -z "$WN" ] && WN=10
-		watch -c -n $WN $0 ls
-		exit
-	fi
-	# TODO: with arg(s) — subtask
-	# TODO: add support ls -a (with subtasks)
-	if [ -n "$1" ] || ! isatty ; then
-		showcmd "$GEARHOST>" girar-show "$@"
-		GIT_ALT=$GEARHOST girar-show "$@" | sed 's/\x1b\[[0-9;]*m//g'
-	else
-		showcmd "$GEARHOST>" 'girar-show | head -n20'
-		GIT_ALT=$GEARHOST girar-show | head -n20
-		echo "(end of head -n20 output)"
-	fi
+	do_task_list "$@"
 	exit
 fi
 
@@ -385,12 +408,7 @@ if [ "$1" = "show" ] ; then
 	if [ -z "$TASK" ] ; then
 		TASK="$(get_last)" || fatal "Can't get last task"
 	fi
-	if [ -n "$VERBOSE" ] ; then
-		docmd ssh $GEARHOST task show "$TASK"
-	else
-		showcmd "$GEARHOST>" girar-show "${TASK}@"
-		GIT_ALT=$GEARHOST girar-show "${TASK}@"
-	fi
+	do_task_show "$TASK" "$VERBOSE"
 	exit
 fi
 
