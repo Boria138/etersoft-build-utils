@@ -205,6 +205,11 @@ for i, t in enumerate(tasks):
         pkg = st.get("pkgname", "")
         tag = st.get("tag_name", "")
         stype = st.get("type", "repo")
+        # fallback: extract package name from dir path
+        if not pkg:
+            d = st.get("dir", "")
+            if d:
+                pkg = d.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
         if stype == "delete":
             pkgs.append("(delete {})".format(pkg))
         elif pkg and tag:
