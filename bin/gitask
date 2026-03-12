@@ -194,15 +194,29 @@ for i, t in enumerate(tasks):
         break
     flags = []
     if t.get("test_only"): flags.append("[test-only]")
-    bt = t.get("build_time", t.get("created", ""))
-    try:
-        dt = datetime.fromisoformat(bt)
-        bt = dt.strftime("%b %d %H:%M:%S %Y")
-    except (ValueError, TypeError):
-        pass
-    parts = [str(t["id"]), t["state"], t["repo"], bt, t["owner"]]
+    # try.iter info
+    ti = t.get("try", 0)
+    it = t.get("iter", 0)
+    tryiter = "#{}".format(ti) if it <= 1 else "#{}.{}".format(ti, it)
+    # package names from subtasks
+    pkgs = []
+    for num in sorted(t.get("subtasks", {}).keys(), key=lambda x: int(x)):
+        st = t["subtasks"][num]
+        pkg = st.get("pkgname", "")
+        tag = st.get("tag_name", "")
+        stype = st.get("type", "repo")
+        if stype == "delete":
+            pkgs.append("(delete {})".format(pkg))
+        elif pkg and tag:
+            pkgs.append("{}.git={}".format(pkg, tag))
+        elif pkg:
+            pkgs.append(pkg)
+    parts = [str(t["id"]), t["state"], tryiter]
     if flags:
         parts.extend(flags)
+    parts.append(t["repo"])
+    if pkgs:
+        parts.extend(pkgs)
     line = " ".join(parts)
     if use_color and t["state"] in colors:
         line = colors[t["state"]] + line + reset
