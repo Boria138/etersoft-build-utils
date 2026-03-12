@@ -60,6 +60,13 @@ get_task_number()
 
 get_last()
 {
+	local api_base user result
+	if api_base=$(_get_api_base) && user=$(_get_girar_user) ; then
+		result=$(curl -sf "$api_base/tasks?user=$user&brief=true" 2>/dev/null | \
+			python3 -c 'import json,sys;t=json.load(sys.stdin);print(t[0] if t else "")' 2>/dev/null)
+		[ -n "$result" ] && echo "$result" && return
+	fi
+	# fallback
 	ssh $GEARHOST task ls | head -n1 | sed -e "s|^#\([0-9]*\) .*|\1|g"
 }
 
@@ -71,18 +78,52 @@ get_test_status()
 # get task status (TESTED, FAILED, EPERM, NEW, AWAITING, BUILDING, PENDING, DONE)
 get_task_status()
 {
+	local api_base result
+	if api_base=$(_get_api_base) ; then
+		result=$(curl -sf "$api_base/tasks/$1" 2>/dev/null | \
+			python3 -c 'import json,sys;print(json.load(sys.stdin).get("state",""))' 2>/dev/null)
+		[ -n "$result" ] && echo "$result" && return
+	fi
+	# fallback
 	ssh $GEARHOST task ls | grep "^#$1 " | sed -e "s|^#[0-9]* \([A-Z]*\) .*|\1|"
 }
 
 # get subtask number from TASKNUMBER for PROJECTNAME
 get_subtask()
 {
+	local api_base result
+	if api_base=$(_get_api_base) ; then
+		result=$(curl -sf "$api_base/tasks/$1" 2>/dev/null | \
+			python3 -c '
+import json, sys
+task = json.load(sys.stdin)
+pkg = sys.argv[1]
+for num, st in task.get("subtasks", {}).items():
+    if st.get("pkgname") == pkg or st.get("dir", "").endswith("/" + pkg + ".git"):
+        print(num)
+        break
+' "$2" 2>/dev/null)
+		[ -n "$result" ] && echo "$result" && return
+	fi
+	# fallback
 	ssh $GEARHOST task show $1 | grep -E "(/$2.git|:package=$2$|:srpm=$2-.*src.rpm)" | sed -e "s|^ \([0-9]*\):.*|\1|g"
 }
 
 # get all subtask numbers from TASKNUMBER
 get_all_subtasks()
 {
+	local api_base result
+	if api_base=$(_get_api_base) ; then
+		result=$(curl -sf "$api_base/tasks/$1" 2>/dev/null | \
+			python3 -c '
+import json, sys
+task = json.load(sys.stdin)
+for num in sorted(task.get("subtasks", {}).keys(), key=int):
+    print(num)
+' 2>/dev/null)
+		[ -n "$result" ] && echo "$result" && return
+	fi
+	# fallback
 	ssh $GEARHOST task show $1 | sed -n 's|^ \([0-9]*\):dir=.*|\1|p'
 }
 
@@ -105,17 +146,132 @@ get_last_from()
 	echo "$FROMSTR"
 }
 
+# Get API base URL for the current girar host; return 1 if API not available
+_get_api_base()
+{
+	case "$GITHOST" in
+		git.alt|gitery)
+			echo "https://git.altlinux.org/tasks/api"
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
+# Get girar username from SSH config (strip alt_ prefix)
+_get_girar_user()
+{
+	local ssh_user
+	ssh_user=$(ssh -G "$GITHOST" 2>/dev/null | sed -n 's/^user //p')
+	[ -n "$ssh_user" ] || return 1
+	echo "${ssh_user#alt_}"
+}
+
+# Format task list from JSON (stdin)
+# $1 - use_color (0/1), $2 - limit (0=unlimited)
+_format_task_list()
+{
+	local use_color="$1" limit="$2"
+	python3 -c '
+import json, sys
+from datetime import datetime
+
+use_color = sys.argv[1] == "1"
+limit = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+
+colors = {
+    "BUILDING": "\033[33m", "COMMITTING": "\033[33m",
+    "AWAITING": "\033[36m", "POSTPONED": "\033[36m",
+    "TESTED": "\033[32m",
+    "FAILED": "\033[35m", "EPERM": "\033[31m",
+}
+reset = "\033[0m"
+
+tasks = json.load(sys.stdin)
+for i, t in enumerate(tasks):
+    if limit and i >= limit:
+        break
+    flags = []
+    if t.get("test_only"): flags.append("[test-only]")
+    bt = t.get("build_time", t.get("created", ""))
+    try:
+        dt = datetime.fromisoformat(bt)
+        bt = dt.strftime("%b %d %H:%M:%S %Y")
+    except (ValueError, TypeError):
+        pass
+    parts = [str(t["id"]), t["state"], t["repo"], bt, t["owner"]]
+    if flags:
+        parts.extend(flags)
+    line = " ".join(parts)
+    if use_color and t["state"] in colors:
+        line = colors[t["state"]] + line + reset
+    print(line)
+' "$use_color" "$limit"
+}
+
+# Format task subtasks from JSON (stdin)
+_format_task_subtasks()
+{
+	python3 -c '
+import json, sys
+
+task = json.load(sys.stdin)
+flags = []
+if task.get("test_only"): flags.append("[test-only]")
+msg = task.get("message", "")
+header = "#{} {} {} {}".format(task["taskid"], task["state"], task["repo"], task["owner"])
+if flags: header += " " + " ".join(flags)
+if msg: header += " " + msg
+print(header)
+
+for num in sorted(task.get("subtasks", {}).keys(), key=int):
+    st = task["subtasks"][num]
+    stype = st.get("type", "repo")
+    pkg = st.get("pkgname", "")
+    if stype == "delete":
+        print(" {}: delete {}".format(num, pkg))
+    elif stype == "copy":
+        copy_from = st.get("copy_repo", "")
+        print(" {}: copy {} from {}".format(num, pkg, copy_from))
+    else:
+        tag = st.get("tag_name", "")
+        author = st.get("tag_author", "")
+        dir_path = st.get("dir", "")
+        print(" {}: {} = {} ({})".format(num, dir_path, tag, author))
+'
+}
+
 do_task_list()
 {
 	if [ "$1" = "--all" ] || [ "$1" = "-a" ] ; then
 		shift
+		local api_base json
+		if api_base=$(_get_api_base) ; then
+			json=$(curl -sf "$api_base/tasks?state=ALL" 2>/dev/null)
+			if [ -n "$json" ] ; then
+				local use_color=0
+				isatty && use_color=1
+				echo "$json" | _format_task_list "$use_color" 0
+				return
+			fi
+		fi
 		docmd ssh $GEARHOST task ls --user=ALL --state=ALL "$@"
 		return
 	fi
-	# TODO: support --user=
 	if [ "$1" = "--user" ] || [ "$1" = "-u" ] ; then
 		local U="$2"
 		shift 2
+		local api_base json
+		if api_base=$(_get_api_base) ; then
+			json=$(curl -sf "$api_base/tasks?user=$U" 2>/dev/null)
+			if [ -n "$json" ] ; then
+				local use_color=0
+				isatty && use_color=1
+				echo "$json" | _format_task_list "$use_color" 0
+				return
+			fi
+		fi
 		docmd ssh $GEARHOST task ls --user=$U "$@"
 		return
 	fi
@@ -125,11 +281,28 @@ do_task_list()
 		watch -c -n $WN $0 ls
 		return
 	fi
-	# TODO: with arg(s) — subtask
-	# TODO: add support ls -a (with subtasks)
-	if [ -n "$1" ] || ! isatty ; then
+	# task number argument → show log (API doesn't provide build logs)
+	if [ -n "$1" ] ; then
 		showcmd "$GEARHOST>" girar-show "$@"
 		GIT_ALT=$GEARHOST girar-show "$@" | stripcolors
+		return
+	fi
+	# default: list own tasks
+	local api_base user json
+	if api_base=$(_get_api_base) && user=$(_get_girar_user) ; then
+		json=$(curl -sf "$api_base/tasks?user=$user" 2>/dev/null)
+		if [ -n "$json" ] ; then
+			local use_color=0 limit=0
+			isatty && use_color=1 && limit=20
+			echo "$json" | _format_task_list "$use_color" "$limit"
+			[ -n "$limit" ] && [ "$limit" -gt 0 ] && isatty && echo "(end of head -n$limit output)"
+			return
+		fi
+	fi
+	# fallback to girar-show
+	if ! isatty ; then
+		showcmd "$GEARHOST>" girar-show
+		GIT_ALT=$GEARHOST girar-show | stripcolors
 	else
 		showcmd "$GEARHOST>" 'girar-show | head -n20'
 		GIT_ALT=$GEARHOST girar-show | head -n20
@@ -141,6 +314,19 @@ do_task_show()
 {
 	local TASK="$1"
 	local VERBOSE="$2"
+	local api_base json
+	if api_base=$(_get_api_base) ; then
+		json=$(curl -sf "$api_base/tasks/$TASK" 2>/dev/null)
+		if [ -n "$json" ] ; then
+			if [ -n "$VERBOSE" ] ; then
+				echo "$json" | python3 -m json.tool
+			else
+				echo "$json" | _format_task_subtasks
+			fi
+			return
+		fi
+	fi
+	# fallback
 	if [ -n "$VERBOSE" ] ; then
 		docmd ssh $GEARHOST task show "$TASK"
 	else
