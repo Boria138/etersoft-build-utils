@@ -168,14 +168,64 @@ _get_girar_user()
 	echo "${ssh_user#alt_}"
 }
 
+# Fetch approval info for tasks from git.altlinux.org filesystem
+# stdin: JSON list of task IDs, stdout: JSON {task_id: {subtask: [users]}}
+_fetch_approvals()
+{
+	python3 -c '
+import json, sys, re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.request import urlopen, Request
+from urllib.error import URLError
+
+task_ids = json.load(sys.stdin)
+base = "https://git.altlinux.org/tasks"
+result = {}
+
+def get_approvals(tid):
+    """Fetch approval usernames for all subtasks of a task."""
+    approvals = {}
+    try:
+        url = "{}/{}/acl/approved/".format(base, tid)
+        with urlopen(Request(url), timeout=5) as resp:
+            html = resp.read().decode()
+        # extract subtask directories (100/, 200/, etc.)
+        for m in re.finditer(r"href=\"(\d+)/\"", html):
+            subtask = m.group(1)
+            try:
+                surl = "{}/{}/acl/approved/{}/".format(base, tid, subtask)
+                with urlopen(Request(surl), timeout=5) as resp2:
+                    shtml = resp2.read().decode()
+                users = re.findall(r"href=\"([a-zA-Z][a-zA-Z0-9_.-]+)\"", shtml)
+                if users:
+                    approvals[subtask] = users
+            except (URLError, OSError):
+                pass
+    except (URLError, OSError):
+        pass
+    return tid, approvals
+
+with ThreadPoolExecutor(max_workers=10) as pool:
+    futures = {pool.submit(get_approvals, tid): tid for tid in task_ids}
+    for f in as_completed(futures):
+        tid, approvals = f.result()
+        if approvals:
+            result[str(tid)] = approvals
+
+json.dump(result, sys.stdout)
+'
+}
+
 # Format task list from JSON (stdin)
 # $1 - use_color (0/1), $2 - limit (0=unlimited)
 _format_task_list()
 {
 	local use_color="$1" limit="$2"
 	python3 -c '
-import json, sys
-from datetime import datetime
+import json, sys, re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.request import urlopen, Request
+from urllib.error import URLError
 
 use_color = sys.argv[1] == "1"
 limit = int(sys.argv[2]) if len(sys.argv) > 2 else 0
@@ -184,11 +234,52 @@ colors = {
     "BUILDING": "\033[33m", "COMMITTING": "\033[33m",
     "AWAITING": "\033[36m", "POSTPONED": "\033[36m",
     "TESTED": "\033[32m",
-    "FAILED": "\033[35m", "EPERM": "\033[31m",
+    "FAILED": "\033[35m", "EPERM": "\033[92m",
 }
 reset = "\033[0m"
 
 tasks = json.load(sys.stdin)
+
+# Collect task IDs that need approval check (TESTED/EPERM only)
+base = "https://git.altlinux.org/tasks"
+check_ids = []
+for i, t in enumerate(tasks):
+    if limit and i >= limit:
+        break
+    if t["state"] in ("TESTED", "EPERM"):
+        check_ids.append(t["id"])
+
+# Fetch approvals in parallel
+all_approvals = {}  # {task_id_str: {subtask: [users]}}
+def get_approvals(tid):
+    approvals = {}
+    try:
+        url = "{}/{}/acl/approved/".format(base, tid)
+        with urlopen(Request(url), timeout=5) as resp:
+            html = resp.read().decode()
+        for m in re.finditer(r"href=\"(\d+)/\"", html):
+            subtask = m.group(1)
+            try:
+                surl = "{}/{}/acl/approved/{}/".format(base, tid, subtask)
+                with urlopen(Request(surl), timeout=5) as resp2:
+                    shtml = resp2.read().decode()
+                users = re.findall(r"href=\"([a-zA-Z][a-zA-Z0-9_.-]+)\"", shtml)
+                if users:
+                    approvals[subtask] = users
+            except (URLError, OSError):
+                pass
+    except (URLError, OSError):
+        pass
+    return tid, approvals
+
+if check_ids:
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {pool.submit(get_approvals, tid): tid for tid in check_ids}
+        for f in as_completed(futures):
+            tid, approvals = f.result()
+            if approvals:
+                all_approvals[str(tid)] = approvals
+
 for i, t in enumerate(tasks):
     if limit and i >= limit:
         break
@@ -198,6 +289,14 @@ for i, t in enumerate(tasks):
     ti = t.get("try", 0)
     it = t.get("iter", 0)
     tryiter = "#{}".format(ti) if it <= 1 else "#{}.{}".format(ti, it)
+    # approval info
+    task_appr = all_approvals.get(str(t["id"]), {})
+    if task_appr:
+        # collect unique approvers across all subtasks
+        approvers = set()
+        for users in task_appr.values():
+            approvers.update(users)
+        flags.append("[approved:{}]".format(",".join(sorted(approvers))))
     # package names from subtasks
     pkgs = []
     for num in sorted(t.get("subtasks", {}).keys(), key=lambda x: int(x)):
@@ -237,7 +336,10 @@ for i, t in enumerate(tasks):
 _format_task_subtasks()
 {
 	python3 -c '
-import json, sys
+import json, sys, re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.request import urlopen, Request
+from urllib.error import URLError
 
 task = json.load(sys.stdin)
 flags = []
@@ -248,20 +350,47 @@ if flags: header += " " + " ".join(flags)
 if msg: header += " " + msg
 print(header)
 
+# Fetch approvals for this task
+base = "https://git.altlinux.org/tasks"
+approvals = {}  # {subtask: [users]}
+if task["state"] in ("TESTED", "EPERM", "DONE"):
+    try:
+        url = "{}/{}/acl/approved/".format(base, task["taskid"])
+        with urlopen(Request(url), timeout=5) as resp:
+            html = resp.read().decode()
+        subtask_dirs = re.findall(r"href=\"(\d+)/\"", html)
+        def fetch_sub(subtask):
+            try:
+                surl = "{}/{}/acl/approved/{}/".format(base, task["taskid"], subtask)
+                with urlopen(Request(surl), timeout=5) as resp2:
+                    shtml = resp2.read().decode()
+                return subtask, re.findall(r"href=\"([a-zA-Z][a-zA-Z0-9_.-]+)\"", shtml)
+            except (URLError, OSError):
+                return subtask, []
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            for subtask, users in pool.map(lambda s: fetch_sub(s), subtask_dirs):
+                if users:
+                    approvals[subtask] = users
+    except (URLError, OSError):
+        pass
+
 for num in sorted(task.get("subtasks", {}).keys(), key=int):
     st = task["subtasks"][num]
     stype = st.get("type", "repo")
     pkg = st.get("pkgname", "")
     if stype == "delete":
-        print(" {}: delete {}".format(num, pkg))
+        line = " {}: delete {}".format(num, pkg)
     elif stype == "copy":
         copy_from = st.get("copy_repo", "")
-        print(" {}: copy {} from {}".format(num, pkg, copy_from))
+        line = " {}: copy {} from {}".format(num, pkg, copy_from)
     else:
         tag = st.get("tag_name", "")
         author = st.get("tag_author", "")
         dir_path = st.get("dir", "")
-        print(" {}: {} = {} ({})".format(num, dir_path, tag, author))
+        line = " {}: {} = {} ({})".format(num, dir_path, tag, author)
+    if num in approvals:
+        line += " [approved:{}]".format(",".join(approvals[num]))
+    print(line)
 '
 }
 
@@ -746,7 +875,7 @@ if [ "$1" = "cancel" ] ; then
 	shift
 	TASK="$(get_task_number $1)"
 	[ -n "$TASK" ] || fatal "No task number"
-	if [ "$GEARHOST" = "git.eter" ]  || [ "$GEARHOST" = "git.office" ] ; then
+	if [ "$GEARHOST" = "gyle.eter" ]  || [ "$GEARHOST" = "git.office" ] ; then
 		docmd ssh $GEARHOST task cancel "$TASK"
 	else
 		docmd ssh $GEARHOST task abort "$TASK"
