@@ -102,9 +102,9 @@ set_gear_host()
 	GITHOST="$GIRARHOST"
 	GEARHOST="$GITHOST"
 	[ "$GEARHOST" = "gitery" ] && GEARHOST="gyle" && return
-	if [ ! "$GEARHOST" = "git.eter" ] ; then
-		GEARHOST="${GITHOST/git./gear.}"
-	fi
+	[ "$GEARHOST" = "gitery.eter" ] && GEARHOST="gyle.eter" && return
+	[ "$GEARHOST" = "git.eter" ] && GEARHOST="gyle.eter" && return
+	GEARHOST="${GITHOST/git./gear.}"
 	return 0
 }
 
